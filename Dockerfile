@@ -19,36 +19,33 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Copy custom nginx config if needed
+# Copy built app from builder stage
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Copy the public directory content (including _redirects)
-COPY --from=builder /app/public/_redirects /usr/share/nginx/html/_redirects
-COPY --from=builder /app/public/favicon.ico /usr/share/nginx/html/
-COPY --from=builder /app/public/manifest.json /usr/share/nginx/html/
-COPY --from=builder /app/public/robots.txt /usr/share/nginx/html/
+# Create a simple nginx config that uses PORT environment variable
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'cat > /etc/nginx/conf.d/default.conf <<EOF' >> /docker-entrypoint.sh && \
+    echo 'server {' >> /docker-entrypoint.sh && \
+    echo '    listen \${PORT:-80};' >> /docker-entrypoint.sh && \
+    echo '    server_name _;' >> /docker-entrypoint.sh && \
+    echo '    root /usr/share/nginx/html;' >> /docker-entrypoint.sh && \
+    echo '    index index.html;' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo '    location / {' >> /docker-entrypoint.sh && \
+    echo '        try_files \$uri \$uri/ /index.html;' >> /docker-entrypoint.sh && \
+    echo '    }' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' >> /docker-entrypoint.sh && \
+    echo '        expires 1y;' >> /docker-entrypoint.sh && \
+    echo '        add_header Cache-Control "public, immutable";' >> /docker-entrypoint.sh && \
+    echo '    }' >> /docker-entrypoint.sh && \
+    echo '}' >> /docker-entrypoint.sh && \
+    echo 'EOF' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo 'nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
 
-# Create a nginx configuration to handle React routing
-RUN echo 'server { \
-    listen 80; \
-    server_name localhost; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
-        expires 1y; \
-        add_header Cache-Control "public, immutable"; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Railway uses dynamic PORT environment variable
-# Create a startup script to use the PORT variable
-RUN echo '#!/bin/sh\n\
-sed -i "s/listen 80;/listen $PORT;/g" /etc/nginx/conf.d/default.conf\n\
-nginx -g "daemon off;"' > /start.sh && \
-chmod +x /start.sh
-
-# Start nginx with dynamic port
-CMD ["/start.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
