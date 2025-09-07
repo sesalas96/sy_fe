@@ -1,0 +1,424 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2024-08-24 01:00:00 UTC",
+  "containerVersion": {
+    "path": "accounts/123456789/containers/12345678/versions/1",
+    "accountId": "123456789",
+    "containerId": "12345678",
+    "containerVersionId": "1",
+    "name": "Safety App Complete Tracking",
+    "description": "Complete tracking setup with all tags, triggers, and variables",
+    "container": {
+      "path": "accounts/123456789/containers/12345678",
+      "accountId": "123456789",
+      "containerId": "12345678",
+      "name": "Safety App",
+      "publicId": "GTM-NLLQRHPS",
+      "usageContext": ["WEB"],
+      "fingerprint": "1724460000000",
+      "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/123456789/containers/12345678/workspaces?apiLink=container"
+    },
+    "variable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "1",
+        "name": "Event Category",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "event_category"
+          }
+        ],
+        "fingerprint": "1724460001000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "2",
+        "name": "User Role",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "user_role"
+          }
+        ],
+        "fingerprint": "1724460002000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "3",
+        "name": "Company",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "company"
+          }
+        ],
+        "fingerprint": "1724460003000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "4",
+        "name": "Form Name",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "form_name"
+          }
+        ],
+        "fingerprint": "1724460004000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "5",
+        "name": "Error Message",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "error_message"
+          }
+        ],
+        "fingerprint": "1724460005000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "6",
+        "name": "Session ID",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "session_id"
+          }
+        ],
+        "fingerprint": "1724460006000"
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "1",
+        "name": "All Custom Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "^(?!gtm\\.).*"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "1724460010000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "2",
+        "name": "Form Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "form_interaction|registration_.*|login_.*"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "1724460011000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "3",
+        "name": "Error Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "error|.*_failed|.*_error"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "1724460012000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "4",
+        "name": "Auth Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "login|register|logout|.*_success"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "1724460013000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "5",
+        "name": "Consent Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "consent_update"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "1724460014000"
+      }
+    ],
+    "tag": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "1",
+        "name": "Debug Console",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\nconsole.log('🎯 GTM Event:', {{Event}}, 'Category:', {{Event Category}});\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["1"],
+        "fingerprint": "1724460020000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "2",
+        "name": "Form Tracking",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\nconsole.log('📝 Form Event:', {\n  event: {{Event}},\n  formName: {{Form Name}},\n  step: {{Event}}.includes('step') ? 'Step tracking' : 'General form',\n  page: {{Page Path}},\n  timestamp: new Date().toISOString()\n});\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["2"],
+        "fingerprint": "1724460021000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "3",
+        "name": "Error Tracker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\nconsole.error('🚨 App Error:', {\n  event: {{Event}},\n  errorMessage: {{Error Message}},\n  page: {{Page Path}},\n  userRole: {{User Role}},\n  timestamp: new Date().toISOString(),\n  userAgent: navigator.userAgent.substring(0, 100)\n});\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["3"],
+        "fingerprint": "1724460022000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "4",
+        "name": "Auth Tracking",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\nconsole.log('🔐 Auth Event:', {\n  event: {{Event}},\n  userRole: {{User Role}},\n  company: {{Company}},\n  success: {{Event}}.includes('success'),\n  sessionId: {{Session ID}},\n  timestamp: new Date().toISOString()\n});\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["4"],
+        "fingerprint": "1724460023000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "5",
+        "name": "Performance Tracker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\nwindow.addEventListener('load', function() {\n  setTimeout(function() {\n    var perfData = performance.getEntriesByType('navigation')[0];\n    console.log('⚡ Page Performance:', {\n      page: {{Page Path}},\n      loadTime: Math.round(perfData.loadEventEnd - perfData.fetchStart) + 'ms',\n      domContentLoaded: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart) + 'ms',\n      timestamp: new Date().toISOString()\n    });\n  }, 1000);\n});\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["2147479553"],
+        "fingerprint": "1724460024000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "6",
+        "name": "Journey Tracking",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\ntry {\n  var journey = JSON.parse(sessionStorage.getItem('userJourney') || '[]');\n  var currentEvent = {\n    event: {{Event}},\n    page: {{Page Path}},\n    timestamp: Date.now(),\n    userRole: {{User Role}} || 'anonymous'\n  };\n\n  journey.push(currentEvent);\n  if (journey.length > 20) journey.shift();\n  sessionStorage.setItem('userJourney', JSON.stringify(journey));\n\n  console.log('🛤️ User Journey:', {\n    currentEvent: currentEvent,\n    journeyLength: journey.length,\n    recentEvents: journey.slice(-3).map(e => e.event)\n  });\n} catch(e) {\n  console.log('🛤️ Journey tracking error:', e.message);\n}\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["1"],
+        "fingerprint": "1724460025000"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "7",
+        "name": "Consent Tracker",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\ntry {\n  var consentData = localStorage.getItem('cookie-consent');\n  if (consentData) {\n    var consent = JSON.parse(consentData);\n    console.log('🍪 Cookie Consent Updated:', {\n      analytics: consent.consents.analytics,\n      marketing: consent.consents.marketing,\n      preferences: consent.consents.preferences,\n      necessary: consent.consents.necessary,\n      timestamp: new Date().toISOString(),\n      version: consent.version\n    });\n  }\n} catch(e) {\n  console.log('🍪 Consent tracking error:', e.message);\n}\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": ["5"],
+        "fingerprint": "1724460026000"
+      }
+    ],
+    "builtInVariable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_URL",
+        "name": "Page URL"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_HOSTNAME",
+        "name": "Page Hostname"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_PATH",
+        "name": "Page Path"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "REFERRER",
+        "name": "Referrer"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "EVENT",
+        "name": "Event"
+      }
+    ],
+    "fingerprint": "1724460000001",
+    "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/123456789/containers/12345678/versions/0?apiLink=version"
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2024-08-24 00:00:00 UTC",
+  "containerVersion": {
+    "path": "accounts/123456789/containers/12345678/versions/1",
+    "accountId": "123456789",
+    "containerId": "12345678",
+    "containerVersionId": "1",
+    "name": "Safety App Setup",
+    "container": {
+      "path": "accounts/123456789/containers/12345678",
+      "accountId": "123456789",
+      "containerId": "12345678",
+      "name": "Safety App",
+      "publicId": "GTM-NLLQRHPS",
+      "usageContext": ["WEB"]
+    },
+    "variable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "1",
+        "name": "Event Category",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "event_category"
+          }
+        ]
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "2",
+        "name": "Event Timestamp",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "event_timestamp"
+          }
+        ]
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "3",
+        "name": "User Role",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "user_role"
+          }
+        ]
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "4",
+        "name": "Company",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "company"
+          }
+        ]
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "1",
+        "name": "Custom Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": ".*"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "builtInVariable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_URL",
+        "name": "Page URL"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_PATH",
+        "name": "Page Path"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "EVENT",
+        "name": "Event"
+      }
+    ]
+  }
+}

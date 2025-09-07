@@ -1,0 +1,9 @@
+# Netlify redirects for React Router
+# All routes should serve the main index.html for client-side routing
+/*    /index.html   200
+
+# API redirects (if needed in the future)
+# /api/*  https://your-api-endpoint.com/api/:splat  200
+
+# Security headers
+/_headers

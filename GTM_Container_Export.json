@@ -1,0 +1,475 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2024-01-01 00:00:00 UTC",
+  "containerVersion": {
+    "path": "accounts/123456789/containers/12345678/versions/1",
+    "accountId": "123456789",
+    "containerId": "12345678",
+    "containerVersionId": "1",
+    "name": "Safety App Initial Setup",
+    "description": "Configuración inicial para tracking de Safety App",
+    "container": {
+      "path": "accounts/123456789/containers/12345678",
+      "accountId": "123456789",
+      "containerId": "12345678",
+      "name": "Safety App",
+      "publicId": "GTM-NLLQRHPS",
+      "usageContext": [
+        "WEB"
+      ],
+      "fingerprint": "0000000000",
+      "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/123456789/containers/12345678/workspaces?apiLink=container"
+    },
+    "tag": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "1",
+        "name": "GA4 Configuration",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "measurementId",
+            "value": "G-1234567890"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableSendToServerContainer",
+            "value": "false"
+          }
+        ],
+        "fingerprint": "0000000001",
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "2",
+        "name": "GA4 - Custom Events",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "measurementId",
+            "value": "G-1234567890"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "{{Event}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventParameters",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "event_category"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{Event Category}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "event_timestamp"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{Event Timestamp}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "page_path"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{Page Path}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "user_role"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{User Role}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "company"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{Company}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "fingerprint": "0000000002",
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "tagId": "4",
+        "name": "Debug - Console Log",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\n  console.log('GTM Event:', {\n    event: {{Event}},\n    category: {{Event Category}},\n    timestamp: {{Event Timestamp}},\n    page: {{Page Path}},\n    userRole: {{User Role}},\n    company: {{Company}}\n  });\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "fingerprint": "0000000004",
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "3",
+        "name": "Custom Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "^(?!gtm\\.).*"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "0000000003"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "5",
+        "name": "Login Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "login|login_success"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "0000000005"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "6",
+        "name": "Registration Events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "register|registration_complete|registration_step_completed"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "0000000006"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "triggerId": "7",
+        "name": "Error Events", 
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "error|login_failed|registration_step_error"
+              }
+            ]
+          }
+        ],
+        "fingerprint": "0000000007"
+      }
+    ],
+    "variable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "8",
+        "name": "Event Category",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "event_category"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000008"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "9",
+        "name": "Event Timestamp",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "event_timestamp"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000009"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "10",
+        "name": "User Role",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "user_role"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000010"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "11",
+        "name": "Company",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "company"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000011"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "12",
+        "name": "Session ID",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "session_id"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000012"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "13",
+        "name": "Form Name",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "form_name"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000013"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "variableId": "14",
+        "name": "Error Message",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "error_message"
+          },
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          }
+        ],
+        "fingerprint": "0000000014"
+      }
+    ],
+    "builtInVariable": [
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_URL",
+        "name": "Page URL"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678", 
+        "type": "PAGE_HOSTNAME",
+        "name": "Page Hostname"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "PAGE_PATH",
+        "name": "Page Path"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "REFERRER",
+        "name": "Referrer"
+      },
+      {
+        "accountId": "123456789",
+        "containerId": "12345678",
+        "type": "EVENT",
+        "name": "Event"
+      }
+    ],
+    "fingerprint": "0000000000",
+    "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/123456789/containers/12345678/versions/0?apiLink=version"
+  }
+}
