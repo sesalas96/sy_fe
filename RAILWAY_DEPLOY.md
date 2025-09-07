@@ -67,3 +67,21 @@ To rollback to a previous deployment:
 1. Go to Railway dashboard
 2. Navigate to deployments
 3. Click "Rollback" on desired version
+
+## Dependabot Configuration
+
+### Automatic Dependency Updates
+- Dependabot checks for updates weekly (Mondays at 9:00 AM)
+- Groups dependencies by type (production, development, MUI)
+- Auto-merges minor and patch updates after tests pass
+- Major version updates require manual review
+
+### Ignored Major Updates
+- React and React DOM
+- React Scripts
+- TypeScript
+
+### PR Management
+- Maximum 10 open PRs at once
+- PRs are labeled automatically
+- Assigned to @devsalas for review
