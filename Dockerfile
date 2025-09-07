@@ -43,8 +43,12 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Railway uses dynamic PORT environment variable
+# Create a startup script to use the PORT variable
+RUN echo '#!/bin/sh\n\
+sed -i "s/listen 80;/listen $PORT;/g" /etc/nginx/conf.d/default.conf\n\
+nginx -g "daemon off;"' > /start.sh && \
+chmod +x /start.sh
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start nginx with dynamic port
+CMD ["/start.sh"]
