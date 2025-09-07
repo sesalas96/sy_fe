@@ -1,6 +1,6 @@
 import { Task, Epic, TaskFilters, CreateTaskData, UpdateTaskData, CreateEpicData, TaskComment } from '../types/tasks';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app';
 
 class TaskService {
   private getAuthToken(): string {

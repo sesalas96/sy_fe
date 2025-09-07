@@ -124,7 +124,7 @@ npx playwright test --project="Mobile Chrome"
 
 Tests are configured in `playwright.config.ts`:
 
-- **Base URL**: `http://localhost:3000`
+- **Base URL**: `https://sybe-production.up.railway.app`
 - **Browsers**: Chromium, Firefox, Safari, Mobile Chrome, Mobile Safari
 - **Auto-start**: Development server before tests
 - **Trace**: Enabled on retry for debugging

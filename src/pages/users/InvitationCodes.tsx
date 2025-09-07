@@ -174,7 +174,7 @@ export const InvitationCodes: React.FC = () => {
   const [batchesRowsPerPage, setBatchesRowsPerPage] = useState(10);
   const [batchesTotalCount, setBatchesTotalCount] = useState(0);
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
 
   // Load companies for the supervisor
   const loadCompanies = useCallback(async () => {

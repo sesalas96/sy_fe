@@ -94,7 +94,7 @@ interface ApiResponse<T> {
   };
 }
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
 
 class FormsApiService {
   private getAuthHeaders() {

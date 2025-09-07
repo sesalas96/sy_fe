@@ -18,12 +18,12 @@ echo "🏢 Probando Sistema de Asignación de Usuarios a Departamentos"
 echo "================================================================"
 
 echo "1️⃣ Obteniendo Usuarios..."
-curl "http://localhost:3000/api/users?companyId=$COMPANY_ID" \
+curl "https://sybe-production.up.railway.app/api/users?companyId=$COMPANY_ID" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n\n2️⃣ Asignando María González al Departamento de Seguridad..."
-curl -X POST "http://localhost:3000/api/departments/$SAFETY_DEPT_ID/users" \
+curl -X POST "https://sybe-production.up.railway.app/api/departments/$SAFETY_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -31,7 +31,7 @@ curl -X POST "http://localhost:3000/api/departments/$SAFETY_DEPT_ID/users" \
   }' | python3 -m json.tool
 
 echo -e "\n\n3️⃣ Asignando Roberto Silva al Departamento HSE..."
-curl -X POST "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl -X POST "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -39,7 +39,7 @@ curl -X POST "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
   }' | python3 -m json.tool
 
 echo -e "\n\n4️⃣ Asignando Diana Moreno al Departamento de Supervisión..."
-curl -X POST "http://localhost:3000/api/departments/$SUPERVISOR_DEPT_ID/users" \
+curl -X POST "https://sybe-production.up.railway.app/api/departments/$SUPERVISOR_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -47,22 +47,22 @@ curl -X POST "http://localhost:3000/api/departments/$SUPERVISOR_DEPT_ID/users" \
   }' | python3 -m json.tool
 
 echo -e "\n\n5️⃣ Verificando usuarios del Departamento de Seguridad..."
-curl "http://localhost:3000/api/departments/$SAFETY_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$SAFETY_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n\n6️⃣ Verificando usuarios del Departamento HSE..."
-curl "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n\n7️⃣ Verificando usuarios del Departamento de Supervisión..."
-curl "http://localhost:3000/api/departments/$SUPERVISOR_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$SUPERVISOR_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n\n8️⃣ Asignando un usuario a múltiples departamentos (María González a HSE también)..."
-curl -X POST "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl -X POST "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -71,17 +71,17 @@ curl -X POST "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
 
 echo -e "\n\n9️⃣ Verificando que María González ahora está en ambos departamentos..."
 echo "Usuarios en Departamento de Seguridad:"
-curl "http://localhost:3000/api/departments/$SAFETY_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$SAFETY_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\nUsuarios en Departamento HSE:"
-curl "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n\n🔟 Probando remover un usuario de un departamento..."
-curl -X DELETE "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl -X DELETE "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -89,7 +89,7 @@ curl -X DELETE "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
   }' | python3 -m json.tool
 
 echo -e "\n\n1️⃣1️⃣ Verificando que Roberto Silva fue removido del HSE..."
-curl "http://localhost:3000/api/departments/$HSE_DEPT_ID/users" \
+curl "https://sybe-production.up.railway.app/api/departments/$HSE_DEPT_ID/users" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 

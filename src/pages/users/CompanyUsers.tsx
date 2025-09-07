@@ -113,7 +113,7 @@ export const CompanyUsers: React.FC = () => {
   // Load companies first
   const loadCompanies = useCallback(async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
       const response = await fetch(`${API_BASE_URL}/companies/supervised`, {
         method: 'GET',
         headers: {

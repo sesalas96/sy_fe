@@ -9,9 +9,11 @@
 
 ### 2. Environment Variables
 Configure these variables in Railway dashboard:
-- `REACT_APP_API_URL`: Your backend API URL
+- `REACT_APP_API_URL`: https://sybe-production.up.railway.app
 - `REACT_APP_ENV`: Set to `production`
 - Other variables from `.env.example` as needed
+
+**Important**: Make sure the backend URL does NOT end with a trailing slash
 
 ### 3. Get Railway Token for CI/CD
 1. Go to Railway Dashboard → Account Settings → Tokens

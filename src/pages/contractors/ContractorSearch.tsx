@@ -129,7 +129,7 @@ export const ContractorSearch: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/contractors?search=${encodeURIComponent(searchTerm.trim())}`,
+        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/contractors?search=${encodeURIComponent(searchTerm.trim())}`,
         {
           headers: {
             'Accept': 'application/json',

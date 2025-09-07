@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) return;
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/auth/impersonation-status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/impersonation-status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -297,7 +297,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/auth/impersonate/${userId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/impersonate/${userId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -359,7 +359,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/auth/end-impersonation`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/end-impersonation`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -429,7 +429,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (isImpersonating) {
         // Silent cleanup on unmount
         navigator.sendBeacon(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/auth/end-impersonation`,
+          `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/end-impersonation`,
           JSON.stringify({ silent: true })
         );
       }

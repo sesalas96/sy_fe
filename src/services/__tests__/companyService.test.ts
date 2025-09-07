@@ -41,7 +41,7 @@ describe('CompanyService', () => {
       const companies = await CompanyService.getCompanies();
       
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/companies',
+        'https://sybe-production.up.railway.app/api/companies',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer mock-token',
@@ -107,7 +107,7 @@ describe('CompanyService', () => {
       const result = await CompanyService.createCompany(newCompany);
       
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/companies',
+        'https://sybe-production.up.railway.app/api/companies',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

@@ -16,7 +16,7 @@ export const ImpersonationBanner: React.FC = () => {
         // Try to end impersonation silently
         try {
           navigator.sendBeacon(
-            `${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/auth/end-impersonation`,
+            `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/end-impersonation`,
             JSON.stringify({ silent: true })
           );
         } catch (error) {

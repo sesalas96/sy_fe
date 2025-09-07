@@ -9,7 +9,7 @@ COMPANY_ID="68aa6f8a9d8cc18a0b891189"
 echo "🏢 Creando departamentos para la empresa $COMPANY_ID"
 
 echo "1️⃣ Creando departamento de Seguridad (Safety)..."
-curl -X POST 'http://localhost:3000/api/departments' \
+curl -X POST 'https://sybe-production.up.railway.app/api/departments' \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -23,7 +23,7 @@ curl -X POST 'http://localhost:3000/api/departments' \
   }' | python3 -m json.tool
 
 echo -e "\n2️⃣ Creando departamento HSE..."
-curl -X POST 'http://localhost:3000/api/departments' \
+curl -X POST 'https://sybe-production.up.railway.app/api/departments' \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -37,7 +37,7 @@ curl -X POST 'http://localhost:3000/api/departments' \
   }' | python3 -m json.tool
 
 echo -e "\n3️⃣ Creando departamento de Supervisión..."
-curl -X POST 'http://localhost:3000/api/departments' \
+curl -X POST 'https://sybe-production.up.railway.app/api/departments' \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -51,7 +51,7 @@ curl -X POST 'http://localhost:3000/api/departments' \
   }' | python3 -m json.tool
 
 echo -e "\n4️⃣ Creando departamento de Recursos Humanos (sin autoridad de aprobación)..."
-curl -X POST 'http://localhost:3000/api/departments' \
+curl -X POST 'https://sybe-production.up.railway.app/api/departments' \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   --data-raw '{
@@ -63,12 +63,12 @@ curl -X POST 'http://localhost:3000/api/departments' \
   }' | python3 -m json.tool
 
 echo -e "\n✅ Verificando departamentos creados..."
-curl "http://localhost:3000/api/departments?companyId=$COMPANY_ID" \
+curl "https://sybe-production.up.railway.app/api/departments?companyId=$COMPANY_ID" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 
 echo -e "\n🎯 Verificando departamentos con autoridad de aprobación..."
-curl "http://localhost:3000/api/departments/approval/$COMPANY_ID" \
+curl "https://sybe-production.up.railway.app/api/departments/approval/$COMPANY_ID" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' | python3 -m json.tool
 

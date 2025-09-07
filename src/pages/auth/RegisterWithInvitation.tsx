@@ -494,7 +494,7 @@ export const RegisterWithInvitation: React.FC = () => {
   usePageTitle(getPageTitle('Registro con Invitación'), 'Sistema de Gestión de Seguridad - Registro con código de invitación');
 
   // API base URL
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
 
   // Load invitation code data on component mount
   useEffect(() => {
