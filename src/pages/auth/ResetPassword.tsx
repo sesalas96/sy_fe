@@ -152,7 +152,7 @@ export const ResetPassword: React.FC = () => {
     return (
       <Container component="main" maxWidth="sm">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center',
@@ -219,7 +219,7 @@ export const ResetPassword: React.FC = () => {
   return (
     <Container component="main" maxWidth="sm">
       <Box sx={{ 
-        minHeight: '100vh', 
+        minHeight: '100dvh', 
         display: 'flex', 
         alignItems: 'center',
         justifyContent: 'center',

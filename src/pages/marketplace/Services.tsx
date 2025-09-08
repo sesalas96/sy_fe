@@ -257,7 +257,7 @@ export const Services: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
       {/* Main Content */}
       <Box sx={{ flexGrow: 1, p: 3 }}>
         {/* Header */}

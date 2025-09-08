@@ -791,7 +791,7 @@ export const MyTasks: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3, height: '100vh', overflow: 'hidden' }}>
+    <Box sx={{ p: 3, height: '100dvh', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -968,7 +968,7 @@ export const MyTasks: React.FC = () => {
             sx={{
               display: 'flex',
               gap: 2,
-              height: 'calc(100vh - 200px)',
+              height: 'calc(100dvh - 200px)',
               overflow: 'auto',
               pb: 2
             }}
@@ -1027,7 +1027,7 @@ export const MyTasks: React.FC = () => {
       ) : (
         /* Table View */
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 280px)' }}>
+          <TableContainer sx={{ maxHeight: 'calc(100dvh - 280px)' }}>
             <Table stickyHeader>
               <TableHead>
                 <TableRow>

@@ -1849,8 +1849,8 @@ export const InvitationCodes: React.FC = () => {
           '& .MuiDialog-paper': {
             width: { xs: '100%', sm: '90%', md: '80%' },
             m: { xs: 0, sm: 2 },
-            maxHeight: { xs: '100vh', sm: '90vh' },
-            height: { xs: '100vh', sm: 'auto' }
+            maxHeight: { xs: '100dvh', sm: '90vh' },
+            height: { xs: '100dvh', sm: 'auto' }
           }
         }}
       >
@@ -2433,7 +2433,7 @@ export const InvitationCodes: React.FC = () => {
           '& .MuiDialog-paper': {
             width: { xs: '100%', sm: '90%' },
             m: { xs: 0, sm: 2 },
-            maxHeight: { xs: '100vh', sm: '90vh' }
+            maxHeight: { xs: '100dvh', sm: '90vh' }
           }
         }}
       >

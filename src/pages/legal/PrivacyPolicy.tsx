@@ -20,7 +20,7 @@ export const PrivacyPolicy: React.FC = () => {
   return (
       <Container component="main" maxWidth="md">
       <Box sx={{ 
-        minHeight: '100vh', 
+        minHeight: '100dvh', 
         py: { xs: 2, md: 4 }
       }}>
         <Card sx={{ 

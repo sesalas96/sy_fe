@@ -1755,7 +1755,7 @@ export const Register: React.FC = () => {
     return (
       <Container component="main" maxWidth="sm" disableGutters>
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center',
@@ -1864,7 +1864,7 @@ export const Register: React.FC = () => {
     return (
       <Container component="main" maxWidth="md" disableGutters>
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center',
@@ -1921,7 +1921,7 @@ export const Register: React.FC = () => {
       </style>
       <Container component="main" maxWidth="md" disableGutters>
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: { xs: 'flex-start', md: 'center' }, 
           py: { xs: 2, md: 3 },
@@ -1935,7 +1935,7 @@ export const Register: React.FC = () => {
             border: { xs: 'none', md: '1px solid' },
             borderColor: { xs: 'transparent', md: 'divider' },
             overflow: 'hidden',
-            minHeight: { xs: 'calc(100vh - 160px)', md: '600px' },
+            minHeight: { xs: 'calc(100dvh - 160px)', md: '600px' },
             display: 'flex',
             flexDirection: 'column'
           }}>

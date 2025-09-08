@@ -81,7 +81,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) =
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
-          height: '100vh',
+          height: '100dvh',
           background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
           position: 'relative',
           '&::before': {

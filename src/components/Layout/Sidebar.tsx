@@ -376,7 +376,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <Box sx={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
+      height: '100dvh',
       overflow: 'hidden',
       backgroundColor: '#ffffff',
       position: 'relative'
@@ -505,7 +505,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              height: '100vh',
+              height: '100dvh',
               overflow: 'hidden',
               borderRight: '1px solid',
               borderColor: 'divider',
@@ -527,7 +527,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              height: '100vh',
+              height: '100dvh',
               overflow: 'hidden',
               position: 'fixed',
               top: 0,

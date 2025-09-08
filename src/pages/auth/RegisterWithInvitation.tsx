@@ -1352,7 +1352,7 @@ export const RegisterWithInvitation: React.FC = () => {
     return (
       <Container component="main" maxWidth="sm">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center',
@@ -1396,7 +1396,7 @@ export const RegisterWithInvitation: React.FC = () => {
     return (
       <Container component="main" maxWidth="md">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center'
@@ -1426,7 +1426,7 @@ export const RegisterWithInvitation: React.FC = () => {
     return (
       <Container component="main" maxWidth="sm">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center',
@@ -1538,7 +1538,7 @@ export const RegisterWithInvitation: React.FC = () => {
     return (
       <Container component="main" maxWidth="md">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'center'
@@ -1562,7 +1562,7 @@ export const RegisterWithInvitation: React.FC = () => {
       </style>
       <Container component="main" maxWidth="md">
         <Box sx={{ 
-          minHeight: '100vh', 
+          minHeight: '100dvh', 
           display: 'flex', 
           alignItems: { xs: 'flex-start', md: 'center' }, 
           py: { xs: 2, md: 3 }
@@ -1575,7 +1575,7 @@ export const RegisterWithInvitation: React.FC = () => {
             border: { xs: 'none', md: '1px solid' },
             borderColor: { xs: 'transparent', md: 'divider' },
             overflow: 'hidden',
-            minHeight: { xs: 'calc(100vh - 160px)', md: '600px' }
+            minHeight: { xs: 'calc(100dvh - 160px)', md: '600px' }
           }}>
             <Box
               sx={{
