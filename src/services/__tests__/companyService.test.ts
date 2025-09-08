@@ -3,6 +3,9 @@ import { CompanyService } from '../companyService';
 // Mock fetch for testing
 global.fetch = jest.fn();
 
+// Define API base URL for tests
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app';
+
 describe('CompanyService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -41,7 +44,7 @@ describe('CompanyService', () => {
       const companies = await CompanyService.getCompanies();
       
       expect(fetch).toHaveBeenCalledWith(
-        'https://sybe-production.up.railway.app/api/companies',
+        `${API_BASE_URL}/api/companies`,
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer mock-token',
@@ -107,7 +110,7 @@ describe('CompanyService', () => {
       const result = await CompanyService.createCompany(newCompany);
       
       expect(fetch).toHaveBeenCalledWith(
-        'https://sybe-production.up.railway.app/api/companies',
+        `${API_BASE_URL}/api/companies`,
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

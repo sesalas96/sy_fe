@@ -1983,7 +1983,7 @@ export const Register: React.FC = () => {
                 px: { xs: 3, md: 4 },
                 py: 3,
                 backgroundColor: 'primary.main',
-                borderRadius: '8px 8px 0 0'
+                borderRadius: '0px 0 0 0'
               }}>
                 <IconButton
                   onClick={handleGoBackToHome}

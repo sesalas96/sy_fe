@@ -81,6 +81,8 @@ interface ContractorInfo {
   updatedAt?: string;
 }
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app';
+
 export const ContractorSearch: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [contractors, setContractors] = useState<ContractorInfo[]>([]);
@@ -129,7 +131,7 @@ export const ContractorSearch: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/contractors?search=${encodeURIComponent(searchTerm.trim())}`,
+        `${API_BASE_URL}/api/contractors?search=${encodeURIComponent(searchTerm.trim())}`,
         {
           headers: {
             'Accept': 'application/json',
