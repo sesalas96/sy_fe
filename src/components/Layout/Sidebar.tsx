@@ -226,8 +226,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, hasRole, logout, userAvatarUrl } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
-  // Auto-expand "Permisos de Trabajo" when on any work-permits route
+  // Auto-expand/collapse menus based on current route
   useEffect(() => {
+    // Handle "Permisos de Trabajo"
     if (location.pathname.includes('/work-permits')) {
       setExpandedItems(prev => {
         if (!prev.includes('Permisos de Trabajo')) {
@@ -237,6 +238,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
     } else {
       setExpandedItems(prev => prev.filter(item => item !== 'Permisos de Trabajo'));
+    }
+
+    // Handle "Mercado Digital"
+    if (location.pathname.includes('/marketplace')) {
+      setExpandedItems(prev => {
+        if (!prev.includes('Mercado Digital')) {
+          return [...prev, 'Mercado Digital'];
+        }
+        return prev;
+      });
+    } else {
+      setExpandedItems(prev => prev.filter(item => item !== 'Mercado Digital'));
     }
   }, [location.pathname]);
 
@@ -306,27 +319,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               py: 0.75,
               borderRadius: 0.5,
               mx: 0.5,
-              backgroundColor: isActive ? 'primary.50' : (isParentOfActive && level === 0 ? 'action.selected' : 'transparent'),
-              borderLeft: (isActive || (isParentOfActive && level === 0)) ? '3px solid' : '3px solid transparent',
+              backgroundColor: isActive ? 'rgba(33, 150, 243, 0.08)' : (isParentOfActive && level === 0 ? 'action.selected' : 'transparent'),
+              borderLeft: (isActive || (isParentOfActive && level === 0)) ? '2px solid' : '2px solid transparent',
               borderLeftColor: (
-                // Verde para subitems activos dentro de "Permisos de Trabajo"
-                (level > 0 && isActive && location.pathname.includes('/work-permits')) ? 'success.main' :
+                // Azul para subitems activos dentro de "Permisos de Trabajo"
+                (level > 0 && isActive && location.pathname.includes('/work-permits')) ? 'primary.main' :
                   // Azul para otros casos activos
                   ((isActive || (isParentOfActive && level === 0)) ? 'primary.main' : 'transparent')
               ),
               '&:hover': {
-                backgroundColor: isActive ? 'primary.100' : 'action.hover'
+                backgroundColor: isActive ? 'rgba(33, 150, 243, 0.12)' : 'action.hover'
               },
               '& .MuiListItemText-primary': {
                 color: (
-                  // Azul para "Permisos de Trabajo" cuando está expandido o tiene hijos activos
-                  (level === 0 && item.title === 'Permisos de Trabajo' && (isParentOfActive || isExpanded)) ? 'primary.main' :
-                    // Verde para subitems activos dentro de "Permisos de Trabajo"
-                    (level > 0 && isActive && location.pathname.includes('/work-permits')) ? 'success.main' :
+                  // Azul para "Permisos de Trabajo" y "Mercado Digital" cuando están expandidos
+                  (level === 0 && (item.title === 'Permisos de Trabajo' || item.title === 'Mercado Digital') && isExpanded) ? 'primary.main' :
+                    // Azul para subitems activos dentro de "Permisos de Trabajo"
+                    (level > 0 && isActive && location.pathname.includes('/work-permits')) ? 'primary.main' :
                       // Comportamiento por defecto
                       (isActive ? 'primary.main' : 'text.primary')
                 ),
-                fontWeight: (isActive || (level === 0 && item.title === 'Permisos de Trabajo' && isParentOfActive)) ? 600 : 400,
+                fontWeight: 400,
                 fontSize: '0.813rem'
               }
             }}
@@ -334,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <ListItemText primary={item.title} sx={{ ml: 0 }} />
             {hasChildren && (
               <Box sx={{
-                color: (level === 0 && item.title === 'Permisos de Trabajo') ? 'primary.main' : 'text.secondary',
+                color: (level === 0 && (item.title === 'Permisos de Trabajo' || item.title === 'Mercado Digital') && isExpanded) ? 'primary.main' : 'text.secondary',
                 '& svg': { fontSize: 18 }
               }}>
                 {isExpanded ? <ExpandLess /> : <ExpandMore />}

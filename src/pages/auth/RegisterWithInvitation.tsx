@@ -509,7 +509,7 @@ export const RegisterWithInvitation: React.FC = () => {
         setInvitationLoading(true);
         
         // Get temporary code details with full data
-        const response = await fetch(`${API_BASE_URL}/temporary-codes/validate`, {
+        const response = await fetch(`${API_BASE_URL}/api/temporary-codes/validate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

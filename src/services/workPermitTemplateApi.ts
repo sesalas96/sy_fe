@@ -132,7 +132,7 @@ class WorkPermitTemplateApiService {
       if (params?.search) queryParams.append('search', params.search);
       if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
 
-      const response = await fetch(`${BASE_URL}/work-permit-templates?${queryParams.toString()}`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates?${queryParams.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -159,7 +159,7 @@ class WorkPermitTemplateApiService {
 
   async getTemplateById(templateId: string): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -185,7 +185,7 @@ class WorkPermitTemplateApiService {
 
   async createTemplate(templateData: WorkPermitTemplateFormData): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(templateData)
@@ -213,7 +213,7 @@ class WorkPermitTemplateApiService {
 
   async updateTemplate(templateId: string, templateData: Partial<WorkPermitTemplateFormData>): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(templateData)
@@ -241,7 +241,7 @@ class WorkPermitTemplateApiService {
 
   async deleteTemplate(templateId: string): Promise<ApiResponse<void>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
@@ -268,7 +268,7 @@ class WorkPermitTemplateApiService {
   // Category operations
   async getCategories(): Promise<ApiResponse<TemplateCategory[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/categories`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/categories`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -295,7 +295,7 @@ class WorkPermitTemplateApiService {
   // Template activation/deactivation
   async toggleTemplateStatus(templateId: string): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}/toggle-status`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}/toggle-status`, {
         method: 'PUT',
         headers: this.getAuthHeaders()
       });
@@ -323,7 +323,7 @@ class WorkPermitTemplateApiService {
   // Clone template
   async cloneTemplate(templateId: string, newName: string): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}/clone`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}/clone`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ name: newName })
@@ -352,7 +352,7 @@ class WorkPermitTemplateApiService {
   // Get templates by category
   async getTemplatesByCategory(category: string): Promise<ApiResponse<WorkPermitTemplate[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/category/${category}`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/category/${category}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -379,7 +379,7 @@ class WorkPermitTemplateApiService {
   // Actualizar formularios de un template
   async updateTemplateForms(templateId: string, forms: TemplateForm[]): Promise<ApiResponse<WorkPermitTemplate>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}/forms`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}/forms`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ forms })
@@ -408,7 +408,7 @@ class WorkPermitTemplateApiService {
   // Obtener formularios de un template
   async getTemplateForms(templateId: string): Promise<ApiResponse<TemplateForm[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/${templateId}/forms`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/${templateId}/forms`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -435,7 +435,7 @@ class WorkPermitTemplateApiService {
   // Obtener formularios disponibles para una categoría
   async getAvailableFormsByCategory(category: string): Promise<ApiResponse<any[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/work-permit-templates/category/${category}/available-forms`, {
+      const response = await fetch(`${BASE_URL}/api/work-permit-templates/category/${category}/available-forms`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });

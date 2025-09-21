@@ -66,109 +66,6 @@ interface User {
   permissions: string[];
 }
 
-// Mock data - En producción vendrá del endpoint /api/users
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Admin Principal',
-    email: 'admin@safety.com',
-    role: UserRole.SUPER_ADMIN,
-    status: 'active',
-    company: 'Safety Corp',
-    lastLogin: new Date(),
-    createdAt: new Date('2024-01-01'),
-    permissions: ['all']
-  },
-  {
-    id: '2',
-    name: 'Juan Supervisor',
-    email: 'juan.supervisor@empresa.com',
-    role: UserRole.CLIENT_SUPERVISOR,
-    status: 'active',
-    company: 'Espacios de Trabajo Cliente ABC',
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    createdAt: new Date('2024-01-15'),
-    permissions: ['view_contractors', 'manage_team', 'approve_permits']
-  },
-  {
-    id: '3',
-    name: 'María Seguridad',
-    email: 'maria.safety@safety.com',
-    role: UserRole.SAFETY_STAFF,
-    status: 'active',
-    company: 'Safety Corp',
-    lastLogin: new Date(Date.now() - 30 * 60 * 1000),
-    createdAt: new Date('2024-01-10'),
-    permissions: ['manage_contractors', 'safety_oversight', 'training_management']
-  },
-  {
-    id: '4',
-    name: 'Carlos Aprobador',
-    email: 'carlos.aprob@empresa.com',
-    role: UserRole.CLIENT_APPROVER,
-    status: 'active',
-    company: 'Espacios de Trabajo Cliente ABC',
-    lastLogin: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    createdAt: new Date('2024-02-01'),
-    permissions: ['approve_permits', 'review_documents', 'hse_oversight']
-  },
-  {
-    id: '5',
-    name: 'Ana Personal',
-    email: 'ana.personal@empresa.com',
-    role: UserRole.CLIENT_STAFF,
-    status: 'active',
-    company: 'Espacios de Trabajo Cliente ABC',
-    lastLogin: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    createdAt: new Date('2024-02-15'),
-    permissions: ['view_own_data', 'training_access']
-  },
-  {
-    id: '6',
-    name: 'Pedro Guardia',
-    email: 'pedro.guardia@security.com',
-    role: UserRole.VALIDADORES_OPS,
-    status: 'active',
-    company: 'Security Solutions',
-    lastLogin: new Date(Date.now() - 15 * 60 * 1000),
-    createdAt: new Date('2024-03-01'),
-    permissions: ['access_control', 'contractor_validation']
-  },
-  {
-    id: '7',
-    name: 'Luis Contratista Admin',
-    email: 'luis.admin@constructora.com',
-    role: UserRole.CONTRATISTA_ADMIN,
-    status: 'active',
-    company: 'Constructora XYZ',
-    lastLogin: new Date(Date.now() - 45 * 60 * 1000),
-    createdAt: new Date('2024-03-10'),
-    permissions: ['manage_team', 'submit_permits', 'training_oversight']
-  },
-  {
-    id: '8',
-    name: 'Roberto Técnico',
-    email: 'roberto.tecnico@constructora.com',
-    role: UserRole.CONTRATISTA_SUBALTERNOS,
-    status: 'active',
-    company: 'Constructora XYZ',
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    createdAt: new Date('2024-03-15'),
-    permissions: ['view_assignments', 'submit_reports']
-  },
-  {
-    id: '9',
-    name: 'Elena Independiente',
-    email: 'elena.indep@freelance.com',
-    role: UserRole.CONTRATISTA_HUERFANO,
-    status: 'active',
-    company: 'Independiente',
-    lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    createdAt: new Date('2024-04-01'),
-    permissions: ['self_management', 'submit_permits']
-  }
-];
-
 export const SystemUsers: React.FC = () => {
   const { user } = useAuth();
   const theme = useTheme();
@@ -200,15 +97,6 @@ export const SystemUsers: React.FC = () => {
   const [exportSearch, setExportSearch] = useState('');
   const [exportLimit, setExportLimit] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Simular carga de datos desde /api/users
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
-      setLoading(false);
-    }, 1000);
-  }, []);
 
   useEffect(() => {
     let filtered = users.filter(u => {

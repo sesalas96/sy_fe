@@ -20,7 +20,7 @@ const apiCall = async (endpoint: string, options: RequestInit = {}): Promise<any
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, config);
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -55,7 +55,7 @@ export class CompanyService {
       if (filters?.employeeCountRange?.min) queryParams.append('employeeCountMin', filters.employeeCountRange.min.toString());
       if (filters?.employeeCountRange?.max) queryParams.append('employeeCountMax', filters.employeeCountRange.max.toString());
       
-      const endpoint = `/companies${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const endpoint = `/api/companies${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await apiCall(endpoint);
       
       return response.data.map((company: any) => ({
@@ -83,7 +83,7 @@ export class CompanyService {
    */
   static async getCompanyById(id: string): Promise<Company | null> {
     try {
-      const response = await apiCall(`/companies/${id}`);
+      const response = await apiCall(`/api/companies/${id}`);
       const company = response.data;
       
       return {
@@ -111,7 +111,7 @@ export class CompanyService {
    */
   static async createCompany(companyData: Omit<Company, 'id' | 'createdAt' | 'updatedAt'>): Promise<Company> {
     try {
-      const response = await apiCall('/companies', {
+      const response = await apiCall('/api/companies', {
         method: 'POST',
         body: JSON.stringify(companyData)
       });
@@ -142,7 +142,7 @@ export class CompanyService {
    */
   static async updateCompany(id: string, companyData: Partial<Omit<Company, 'id' | 'createdAt'>>): Promise<Company> {
     try {
-      const response = await apiCall(`/companies/${id}`, {
+      const response = await apiCall(`/api/companies/${id}`, {
         method: 'PUT',
         body: JSON.stringify(companyData)
       });
@@ -173,7 +173,7 @@ export class CompanyService {
    */
   static async deleteCompany(id: string): Promise<void> {
     try {
-      await apiCall(`/companies/${id}`, {
+      await apiCall(`/api/companies/${id}`, {
         method: 'DELETE'
       });
     } catch (error) {
@@ -193,7 +193,7 @@ export class CompanyService {
     byIndustry: { [industry: string]: number };
   }> {
     try {
-      const response = await apiCall('/companies/stats');
+      const response = await apiCall('/api/companies/stats');
       return response.data;
     } catch (error) {
       console.error('Error fetching company stats:', error);
@@ -206,7 +206,7 @@ export class CompanyService {
    */
   static async hasActiveContractors(companyId: string): Promise<boolean> {
     try {
-      const response = await apiCall(`/companies/${companyId}/has-active-contractors`);
+      const response = await apiCall(`/api/companies/${companyId}/has-active-contractors`);
       return response.data;
     } catch (error) {
       console.error('Error checking active contractors:', error);
@@ -231,7 +231,7 @@ export class CompanyService {
       if (companyId) queryParams.append('companyId', companyId);
       if (daysAhead !== 30) queryParams.append('daysAhead', daysAhead.toString());
       
-      const endpoint = `/companies/certifications/expiring${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const endpoint = `/api/companies/certifications/expiring${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await apiCall(endpoint);
       
       return response.data.map((item: any) => ({
@@ -252,7 +252,7 @@ export class CompanyService {
    */
   static async updateCompanyStatus(id: string, status: 'active' | 'inactive' | 'suspended'): Promise<Company> {
     try {
-      const response = await apiCall(`/companies/${id}/status`, {
+      const response = await apiCall(`/api/companies/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status })
       });
@@ -283,7 +283,7 @@ export class CompanyService {
    */
   static async getCompaniesForSelect(): Promise<{ id: string; name: string }[]> {
     try {
-      const response = await apiCall('/companies/select');
+      const response = await apiCall('/api/companies/select');
       // Map _id to id for consistency with frontend expectations
       return response.data.map((company: any) => ({
         id: company._id || company.id,

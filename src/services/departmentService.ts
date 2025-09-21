@@ -19,7 +19,7 @@ const apiCall = async (endpoint: string, options: RequestInit = {}): Promise<any
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, config);
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

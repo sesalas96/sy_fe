@@ -75,7 +75,7 @@ export class UserService {
       if (filters?.page) queryParams.append('page', filters.page.toString());
       if (filters?.limit) queryParams.append('limit', filters.limit.toString());
       
-      const endpoint = `/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const endpoint = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await apiCall(endpoint);
       
       return response.data || response;
@@ -118,7 +118,7 @@ export class UserService {
    */
   static async getUser(id: string): Promise<User | null> {
     try {
-      const response = await apiCall(`/users/${id}`);
+      const response = await apiCall(`/api/users/${id}`);
       return response.data || response;
     } catch (error) {
       console.error('Error fetching user:', error);

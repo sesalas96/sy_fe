@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) return;
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/impersonation-status`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/api/auth/impersonation-status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

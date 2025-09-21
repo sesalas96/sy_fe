@@ -99,7 +99,7 @@ export const SupervisedContractorForm: React.FC = () => {
   const loadSupervisedCompanies = async () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
-      const response = await fetch(`${API_BASE_URL}/companies/supervised`, {
+      const response = await fetch(`${API_BASE_URL}/api/companies/supervised`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -133,7 +133,7 @@ export const SupervisedContractorForm: React.FC = () => {
   const loadAvailableSupervisors = async () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api';
-      const response = await fetch(`${API_BASE_URL}/users?role=CLIENT_SUPERVISOR&isActive=true`, {
+      const response = await fetch(`${API_BASE_URL}/api/users?role=CLIENT_SUPERVISOR&isActive=true`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

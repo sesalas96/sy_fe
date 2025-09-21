@@ -135,7 +135,7 @@ export interface CompanyFormData {
   email: string;
   website?: string;
   industry: string;
-  employeeCount: number;
+  employeeCount?: number;
   contactPerson: CompanyContactPerson;
   legalRepresentative: CompanyLegalRepresentative;
   insuranceInfo?: CompanyInsuranceInfo;

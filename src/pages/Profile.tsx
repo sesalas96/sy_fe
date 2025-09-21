@@ -4,13 +4,21 @@ import {
   Typography,
   Alert,
   Button,
-  Divider
+  Divider,
+  Tabs,
+  Tab,
+  Paper,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
-  Save as SaveIcon
+  Save as SaveIcon,
+  Person as PersonIcon,
+  VerifiedUser as VerifiedUserIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 // Import role-specific profiles
 import {
@@ -22,10 +30,16 @@ import {
   ValidadoresOpsProfile,
   ContratistaProfile
 } from '../components/Profile';
+import { UserVerifications } from '../components/verifications';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  usePageTitle('Mi Perfil', 'Configuración personal y verificaciones');
+  
   const [success, setSuccess] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   const handleSave = async () => {
     // Simulate save operation
@@ -67,6 +81,17 @@ export const Profile: React.FC = () => {
     }
   };
 
+  // Check if user should see verifications tab
+  const canSeeVerifications = user && [
+    UserRole.CLIENT_SUPERVISOR,
+    UserRole.CLIENT_APPROVER,
+    UserRole.CLIENT_STAFF,
+    UserRole.CONTRATISTA_ADMIN,
+    UserRole.CONTRATISTA_SUBALTERNOS,
+    UserRole.CONTRATISTA_HUERFANO,
+    UserRole.VALIDADORES_OPS
+  ].includes(user.role);
+
   return (
     <Box>
       {/* Header */}
@@ -83,20 +108,66 @@ export const Profile: React.FC = () => {
         </Alert>
       )}
 
-      {/* Profile Content */}
-      {renderRoleSpecificProfile()}
-
-      {/* Save Button */}
-      <Divider sx={{ my: 3 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          size="large"
+      {/* Tabs */}
+      <Paper sx={{ bgcolor: 'background.paper', mb: 3 }}>
+        <Tabs
+          value={tabValue}
+          onChange={(_, newValue) => setTabValue(newValue)}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }
+          }}
         >
-          Guardar Cambios del Perfil
-        </Button>
+          <Tab 
+            icon={<PersonIcon />} 
+            iconPosition="start" 
+            label="Información Personal" 
+          />
+          {canSeeVerifications && (
+            <Tab 
+              icon={<VerifiedUserIcon />} 
+              iconPosition="start" 
+              label="Verificarme" 
+            />
+          )}
+        </Tabs>
+      </Paper>
+
+      {/* Tab Content */}
+      <Box role="tabpanel" hidden={tabValue !== 0}>
+        {tabValue === 0 && (
+          <>
+            {/* Profile Content */}
+            {renderRoleSpecificProfile()}
+
+            {/* Save Button */}
+            <Divider sx={{ my: 3 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                size="large"
+              >
+                Guardar Cambios del Perfil
+              </Button>
+            </Box>
+          </>
+        )}
+      </Box>
+
+      <Box role="tabpanel" hidden={tabValue !== 1}>
+        {tabValue === 1 && canSeeVerifications && (
+          <UserVerifications />
+        )}
       </Box>
     </Box>
   );

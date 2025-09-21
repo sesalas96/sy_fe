@@ -126,7 +126,7 @@ class UserApiService {
       if (filters.company) params.append('company', filters.company);
       if (filters.companyId) params.append('companyId', filters.companyId);
 
-      const response = await fetch(`${BASE_URL}/users?${params.toString()}`, {
+      const response = await fetch(`${BASE_URL}/api/users?${params.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -153,7 +153,7 @@ class UserApiService {
 
   async getById(userId: string): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -179,7 +179,7 @@ class UserApiService {
 
   async create(userData: UserFormData): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users`, {
+      const response = await fetch(`${BASE_URL}/api/users`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(userData)
@@ -207,7 +207,7 @@ class UserApiService {
 
   async update(userId: string, userData: Partial<UserFormData>): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(userData)
@@ -235,7 +235,7 @@ class UserApiService {
 
   async delete(userId: string): Promise<ApiResponse<void>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
@@ -261,7 +261,7 @@ class UserApiService {
 
   async getGeneralStats(): Promise<ApiResponse<UserGeneralStats>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/stats`, {
+      const response = await fetch(`${BASE_URL}/api/users/stats`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -287,7 +287,7 @@ class UserApiService {
 
   async getStats(userId: string): Promise<ApiResponse<UserIndividualStats>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}/stats`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}/stats`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -313,7 +313,7 @@ class UserApiService {
 
   async getProfile(): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/profile`, {
+      const response = await fetch(`${BASE_URL}/api/users/profile`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -339,7 +339,7 @@ class UserApiService {
 
   async updateProfile(profileData: UserProfileData): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/profile`, {
+      const response = await fetch(`${BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(profileData)
@@ -367,7 +367,7 @@ class UserApiService {
 
   async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/change-password`, {
+      const response = await fetch(`${BASE_URL}/api/users/change-password`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ currentPassword, newPassword })
@@ -394,7 +394,7 @@ class UserApiService {
 
   async toggleStatus(userId: string): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}/toggle-status`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}/toggle-status`, {
         method: 'PUT',
         headers: this.getAuthHeaders()
       });
@@ -435,7 +435,7 @@ class UserApiService {
       if (params?.success !== undefined) queryParams.append('success', params.success.toString());
 
       const response = await fetch(
-        `${BASE_URL}/users/${userId}/login-history?${queryParams.toString()}`,
+        `${BASE_URL}/api/users/${userId}/login-history?${queryParams.toString()}`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -469,7 +469,7 @@ class UserApiService {
 
   async updateSupervisedCompanies(userId: string, companyIds: string[]): Promise<ApiResponse<User>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}/supervised-companies`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}/supervised-companies`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ companyIds })
@@ -497,7 +497,7 @@ class UserApiService {
 
   async getSupervisedCompanies(userId: string): Promise<ApiResponse<{ _id: string; name: string }[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/users/${userId}/supervised-companies`, {
+      const response = await fetch(`${BASE_URL}/api/users/${userId}/supervised-companies`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -533,7 +533,7 @@ class UserApiService {
     if (filters.companyId) params.append('companyId', filters.companyId);
     params.append('format', filters.format || 'excel');
 
-    const response = await fetch(`${BASE_URL}/users/export?${params.toString()}`, {
+    const response = await fetch(`${BASE_URL}/api/users/export?${params.toString()}`, {
       headers: this.getAuthHeaders()
     });
 

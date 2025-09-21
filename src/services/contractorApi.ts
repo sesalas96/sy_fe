@@ -279,7 +279,7 @@ export const contractorApi = {
     params.append('format', filters.format || 'excel');
 
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/contractors/export?${params.toString()}`, {
+    const response = await fetch(`${API_BASE_URL}/api/contractors/export?${params.toString()}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

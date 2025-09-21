@@ -69,7 +69,15 @@ import {
   Badge as BadgeIcon,
   History as HistoryIcon,
   School as SchoolIcon,
-  Sync as SyncIcon
+  Sync as SyncIcon,
+  Description as DescriptionIcon,
+  Folder as FolderIcon,
+  InsertDriveFile as FileIcon,
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
+  Delete as DeleteIcon,
+  CloudUpload as CloudUploadIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { User, UserRole } from '../../types';
@@ -79,6 +87,8 @@ import { coursesApi } from '../../services/coursesApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
+import { verificationsApi } from '../../services/verificationsApi';
+import { UserVerificationsPanel } from '../../components/verifications/UserVerificationsPanel';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -163,7 +173,7 @@ interface TermsAcceptance {
 export const UserDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { hasRole, user: currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -171,6 +181,11 @@ export const UserDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  
+  // Estados para verificaciones
+  const [userHasPendingVerifications, setUserHasPendingVerifications] = useState(false);
+  const [userVerifications, setUserVerifications] = useState<any[]>([]);
   
   // Estados para contratistas
   const [verificationInfo, setVerificationInfo] = useState<VerificationInfo | null>(null);
@@ -217,6 +232,21 @@ export const UserDetail: React.FC = () => {
   const [talentLMSProgress, setTalentLMSProgress] = useState<any>(null);
   const [syncingWithTalentLMS, setSyncingWithTalentLMS] = useState(false);
   
+  // Estados para documentos
+  const [userDocuments, setUserDocuments] = useState<any[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState<string>('');
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [viewDocumentDialog, setViewDocumentDialog] = useState(false);
+  const [viewDocumentUrl, setViewDocumentUrl] = useState('');
+  const [viewDocumentName, setViewDocumentName] = useState('');
+  const [viewDocumentId, setViewDocumentId] = useState('');
+  const [deleteDocumentDialog, setDeleteDocumentDialog] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{id: string, name: string} | null>(null);
+  
   // Snackbar
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -225,6 +255,64 @@ export const UserDetail: React.FC = () => {
   }>({ open: false, message: '', severity: 'success' });
 
   usePageTitle(user ? `${user.firstName} ${user.lastName}` : 'Detalles del Usuario', 'Información completa del usuario');
+
+  // Function to load user avatar (selfie)
+  const loadUserAvatar = useCallback(async (userData: User) => {
+    try {
+      const userId = userData._id || userData.id;
+      if (!userId) {
+        console.log('No userId available for avatar loading');
+        return;
+      }
+
+      console.log('Loading avatar for user:', userId);
+      
+      // Get all contractor files for the user
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.files) {
+          // Find the selfie file
+          const selfieFile = data.files.find((f: any) => f.fieldName === 'selfie');
+          
+          if (selfieFile && selfieFile.id) {
+            console.log('Selfie found, downloading for avatar:', selfieFile.id);
+            
+            // Download the selfie
+            const avatarResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/download/${selfieFile.id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (avatarResponse.ok) {
+              const blob = await avatarResponse.blob();
+              const avatarUrl = URL.createObjectURL(blob);
+              
+              setUserAvatarUrl(avatarUrl);
+              console.log('User avatar loaded successfully');
+            }
+          } else {
+            console.log('No selfie file found for user');
+            setUserAvatarUrl(null);
+          }
+        } else {
+          console.log('No files found for user');
+          setUserAvatarUrl(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user avatar:', error);
+      setUserAvatarUrl(null);
+    }
+  }, []);
 
   const loadContractorDataFromAPI = useCallback(async (userId: string) => {
     try {
@@ -271,6 +359,9 @@ export const UserDetail: React.FC = () => {
       if (userResponse.success && userResponse.data) {
         setUser(userResponse.data);
         
+        // Cargar avatar del usuario
+        await loadUserAvatar(userResponse.data);
+        
         // Si es contratista, cargar datos adicionales
         if (isContractor(userResponse.data.role)) {
           await loadContractorData(id);
@@ -285,7 +376,7 @@ export const UserDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, loadContractorDataFromAPI]);
+  }, [id, loadContractorDataFromAPI, loadUserAvatar]);
 
   const loadContractorData = async (_userId: string) => {
     try {
@@ -454,7 +545,7 @@ export const UserDetail: React.FC = () => {
     return 'error.main';
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -559,9 +650,46 @@ export const UserDetail: React.FC = () => {
     }
   }, [user?._id, user?.id, user?.role]);
 
+  const loadUserDocuments = useCallback(async () => {
+    if (!user?._id && !user?.id) return;
+    
+    const userId = user._id || user.id || '';
+    setDocumentsLoading(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.files) {
+          setUserDocuments(data.files);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user documents:', error);
+      setUserDocuments([]);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [user?._id, user?.id]);
+
   useEffect(() => {
     loadUserData();
   }, [id, loadUserData]);
+
+  // Cleanup avatar URL on unmount
+  useEffect(() => {
+    return () => {
+      if (userAvatarUrl) {
+        URL.revokeObjectURL(userAvatarUrl);
+      }
+    };
+  }, [userAvatarUrl]);
 
   useEffect(() => {
     if (user && historyType === 'access') {
@@ -574,6 +702,32 @@ export const UserDetail: React.FC = () => {
       loadCourseProgress();
     }
   }, [user, tabValue, loadCourseProgress]);
+
+  useEffect(() => {
+    if (user && tabValue === 3) { // Tab de Documentos
+      loadUserDocuments();
+    }
+  }, [user, tabValue, loadUserDocuments]);
+
+  // Verificar si el usuario actual (el que está viendo la página) tiene verificaciones pendientes
+  useEffect(() => {
+    const checkUserVerifications = async () => {
+      // Solo mostrar el tab si es el usuario viendo su propio perfil
+      // y no es un super_admin o safety_staff
+      if (currentUser && user && currentUser._id === user._id && 
+          currentUser.role !== UserRole.SUPER_ADMIN && 
+          currentUser.role !== UserRole.SAFETY_STAFF) {
+        try {
+          const hasPending = await verificationsApi.hasPendingVerifications();
+          setUserHasPendingVerifications(hasPending);
+        } catch (error) {
+          console.error('Error checking verifications:', error);
+        }
+      }
+    };
+
+    checkUserVerifications();
+  }, [currentUser, user]);
 
   const handleSyncWithTalentLMS = async () => {
     if (!user?._id && !user?.id) return;
@@ -636,6 +790,250 @@ export const UserDetail: React.FC = () => {
     }
   };
 
+  const handleViewDocument = async (fileId: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Viewing document:', fileId, fileName);
+      
+      // Show loading state
+      setSnackbar({
+        open: true,
+        message: 'Cargando documento...',
+        severity: 'info'
+      });
+      
+      // Always fetch the document with authorization header
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/download/${fileId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': '*/*'
+          }
+        }
+      );
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        // Check if it's the header encoding issue
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        
+        if (response.status === 500 && errorText.includes('Invalid character in header')) {
+          // Try alternative endpoint or method
+          throw new Error('Filename encoding issue - trying alternative method');
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      // Get the blob
+      const blob = await response.blob();
+      console.log('Blob type:', blob.type, 'Size:', blob.size);
+      
+      // Create object URL from blob
+      const url = URL.createObjectURL(blob);
+      
+      // Open in dialog
+      setViewDocumentUrl(url);
+      setViewDocumentName(fileName);
+      setViewDocumentId(fileId);
+      setViewDocumentDialog(true);
+      
+      // Close loading snackbar
+      setSnackbar({ open: false, message: '', severity: 'info' });
+      
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      
+      // If it's a filename encoding issue, show dialog with error message
+      if (error instanceof Error && error.message.includes('Filename encoding issue')) {
+        setSnackbar({
+          open: true,
+          message: 'El archivo tiene caracteres especiales en el nombre. Usa el botón de descarga.',
+          severity: 'warning'
+        });
+        
+        // Open dialog without URL to show error message
+        setViewDocumentUrl('');
+        setViewDocumentName(fileName);
+        setViewDocumentId(fileId);
+        setViewDocumentDialog(true);
+      } else {
+        // Other errors
+        setSnackbar({
+          open: true,
+          message: 'No se pudo abrir el documento. Intenta descargarlo.',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleDeleteDocument = async (fileId: string, fileName: string) => {
+    setDocumentToDelete({ id: fileId, name: fileName });
+    setDeleteDocumentDialog(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/${documentToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Documento eliminado exitosamente',
+          severity: 'success'
+        });
+        // Recargar documentos
+        await loadUserDocuments();
+      } else {
+        throw new Error('Error al eliminar documento');
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error al eliminar el documento',
+        severity: 'error'
+      });
+    } finally {
+      setDeleteDocumentDialog(false);
+      setDocumentToDelete(null);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!selectedFile || !documentType || !user) return;
+
+    setUploadingDocument(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', selectedFile);
+      formData.append('userId', user._id || user.id || '');
+      formData.append('fieldName', documentType);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/user/${user._id || user.id}/${documentType}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Documento actualizado exitosamente',
+          severity: 'success'
+        });
+        setDocumentDialogOpen(false);
+        setSelectedFile(null);
+        setDocumentType('');
+        // Recargar documentos
+        await loadUserDocuments();
+      } else {
+        throw new Error('Error al subir documento');
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error al subir el documento',
+        severity: 'error'
+      });
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleDownloadDocument = async (fileId: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Downloading document:', fileId, fileName);
+      
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/download/${fileId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': '*/*'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        // Check if it's the header encoding issue
+        const errorText = await response.text();
+        if (response.status === 500 && errorText.includes('Invalid character in header')) {
+          // Try alternative download without Content-Disposition header
+          throw new Error('Filename encoding issue');
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Sanitize filename for download
+      const sanitizedFileName = fileName.replace(/[^\w\s.-]/g, '_');
+      
+      // Create download link
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = sanitizedFileName || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      setSnackbar({
+        open: true,
+        message: 'Documento descargado exitosamente',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      
+      // If filename encoding issue, try direct browser download
+      if (error instanceof Error && error.message.includes('Filename encoding issue')) {
+        const downloadUrl = `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/download/${fileId}`;
+        
+        // Open in new window as fallback
+        window.open(downloadUrl, '_blank');
+        
+        setSnackbar({
+          open: true,
+          message: 'Abriendo descarga en nueva ventana...',
+          severity: 'info'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Error al descargar el documento',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
   const handleSaveEvaluation = async () => {
     if (!user) return;
     
@@ -687,7 +1085,14 @@ export const UserDetail: React.FC = () => {
     );
   }
 
-  const tabLabels = ['Información General', 'Historial', 'Cursos'];
+  const tabLabels = ['Información General', 'Historial', 'Cursos', 'Documentos'];
+  
+  // Agregar tab "Verificarme" si el usuario tiene verificaciones pendientes
+  // y es el usuario viendo su propio perfil
+  if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+    tabLabels.push('Verificarme');
+  }
+  
   if (isContractor(user.role)) {
     tabLabels.push('Verificación', 'Evaluaciones', 'Certificaciones', 'Términos');
   }
@@ -714,6 +1119,7 @@ export const UserDetail: React.FC = () => {
               mb: isMobile ? 2 : 0 
             }}>
               <Avatar
+                src={userAvatarUrl || undefined}
                 sx={{
                   width: { xs: 80, md: 100 },
                   height: { xs: 80, md: 100 },
@@ -721,7 +1127,7 @@ export const UserDetail: React.FC = () => {
                   fontSize: { xs: '1.5rem', md: '2rem' }
                 }}
               >
-                {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                {!userAvatarUrl && `${user.firstName?.charAt(0)}${user.lastName?.charAt(0)}`}
               </Avatar>
             </Box>
           </Grid>
@@ -1351,9 +1757,170 @@ export const UserDetail: React.FC = () => {
         </Grid>
       </TabPanel>
 
+      <TabPanel value={tabValue} index={3}>
+        {/* Documentos */}
+        <Grid container spacing={3}>
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FolderIcon color="primary" />
+                    Documentos del Usuario
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Chip 
+                      label={`${userDocuments.length} documentos`} 
+                      color="primary" 
+                      size="small"
+                    />
+                    {canEditUser() && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<CloudUploadIcon />}
+                        onClick={() => setDocumentDialogOpen(true)}
+                      >
+                        Agregar Documento
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+
+                {documentsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : userDocuments.length === 0 ? (
+                  <Alert severity="info">
+                    No hay documentos disponibles para este usuario
+                  </Alert>
+                ) : (
+                  <Grid container spacing={2}>
+                    {userDocuments.map((doc) => {
+                      const getDocumentIcon = () => {
+                        const ext = doc.originalName?.split('.').pop()?.toLowerCase();
+                        if (['pdf'].includes(ext)) return <PdfIcon />;
+                        if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return <ImageIcon />;
+                        return <FileIcon />;
+                      };
+
+                      const getDocumentTypeName = (fieldName: string) => {
+                        const types: Record<string, string> = {
+                          selfie: 'Selfie',
+                          idFront: 'Cédula - Frente',
+                          idBack: 'Cédula - Reverso',
+                          polizaINS: 'Póliza INS',
+                          ordenPatronal: 'Orden Patronal',
+                          initialCourses: 'Cursos Iniciales',
+                          additionalCourses: 'Cursos Adicionales',
+                          medicalCertificate: 'Certificado Médico',
+                          contractorLicense: 'Licencia de Contratista',
+                          backgroundCheck: 'Antecedentes'
+                        };
+                        return types[fieldName] || fieldName;
+                      };
+
+                      return (
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={doc.id}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                                <Box sx={{ 
+                                  p: 1, 
+                                  bgcolor: 'action.hover', 
+                                  borderRadius: 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}>
+                                  {getDocumentIcon()}
+                                </Box>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography variant="subtitle2" noWrap>
+                                    {getDocumentTypeName(doc.fieldName)}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" noWrap>
+                                    {doc.originalName}
+                                  </Typography>
+                                  <Typography variant="caption" display="block" color="text.secondary">
+                                    {formatDate(doc.uploadDate)}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Box sx={{ mt: 2 }}>
+                                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<VisibilityIcon />}
+                                    onClick={() => handleViewDocument(doc.id, doc.originalName)}
+                                    fullWidth
+                                  >
+                                    Ver
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<DownloadIcon />}
+                                    onClick={() => handleDownloadDocument(doc.id, doc.originalName)}
+                                    fullWidth
+                                  >
+                                    Descargar
+                                  </Button>
+                                </Box>
+                                {canEditUser() && (
+                                  <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="primary"
+                                      startIcon={<RefreshIcon />}
+                                      onClick={() => {
+                                        setSelectedDocument(doc);
+                                        setDocumentType(doc.fieldName);
+                                        setDocumentDialogOpen(true);
+                                      }}
+                                      fullWidth
+                                    >
+                                      Actualizar
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      startIcon={<DeleteIcon />}
+                                      onClick={() => handleDeleteDocument(doc.id, doc.originalName)}
+                                      fullWidth
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  </Box>
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      {/* Tab Verificarme - Solo visible para el usuario viendo su propio perfil */}
+      {userHasPendingVerifications && currentUser && user && currentUser._id === user._id && (
+        <TabPanel value={tabValue} index={4}>
+          <UserVerificationsPanel userId={user._id} />
+        </TabPanel>
+      )}
+
       {isContractor(user.role) && (
         <>
-          <TabPanel value={tabValue} index={3}>
+          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 5 : 4}>
             {/* Verificación */}
             <Grid container spacing={3}>
               <Grid size={12}>
@@ -1495,7 +2062,7 @@ export const UserDetail: React.FC = () => {
             </Grid>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={4}>
+          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 6 : 5}>
             {/* Evaluaciones */}
             <Grid container spacing={3}>
               <Grid size={12}>
@@ -1609,7 +2176,7 @@ export const UserDetail: React.FC = () => {
             </Grid>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={5}>
+          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 7 : 6}>
             {/* Certificaciones */}
             <Grid container spacing={3}>
               <Grid size={12}>
@@ -1720,7 +2287,7 @@ export const UserDetail: React.FC = () => {
             </Grid>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={6}>
+          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 8 : 7}>
             {/* Términos y Condiciones */}
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 6 }}>
@@ -2109,7 +2676,7 @@ export const UserDetail: React.FC = () => {
                   label="Fecha de Emisión"
                   value={newCertification.issueDate}
                   onChange={(e) => setNewCertification(prev => ({ ...prev, issueDate: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               
@@ -2120,7 +2687,7 @@ export const UserDetail: React.FC = () => {
                   label="Fecha de Vencimiento"
                   value={newCertification.expiryDate}
                   onChange={(e) => setNewCertification(prev => ({ ...prev, expiryDate: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               
@@ -2185,6 +2752,314 @@ export const UserDetail: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Diálogo de Documentos */}
+      <Dialog
+        open={documentDialogOpen}
+        onClose={() => {
+          setDocumentDialogOpen(false);
+          setSelectedDocument(null);
+          setSelectedFile(null);
+          setDocumentType('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CloudUploadIcon color="primary" />
+            {selectedDocument ? 'Actualizar Documento' : 'Agregar Documento'}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Tipo de Documento</InputLabel>
+              <Select
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                label="Tipo de Documento"
+                disabled={!!selectedDocument}
+              >
+                <MenuItem value="selfie">Selfie</MenuItem>
+                <MenuItem value="idFront">Cédula - Frente</MenuItem>
+                <MenuItem value="idBack">Cédula - Reverso</MenuItem>
+                <MenuItem value="polizaINS">Póliza INS</MenuItem>
+                <MenuItem value="ordenPatronal">Orden Patronal</MenuItem>
+                <MenuItem value="initialCourses">Cursos Iniciales</MenuItem>
+                <MenuItem value="additionalCourses">Cursos Adicionales</MenuItem>
+                <MenuItem value="medicalCertificate">Certificado Médico</MenuItem>
+                <MenuItem value="contractorLicense">Licencia de Contratista</MenuItem>
+                <MenuItem value="backgroundCheck">Antecedentes</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Box
+              sx={{
+                border: '2px dashed',
+                borderColor: 'primary.main',
+                borderRadius: 2,
+                p: 3,
+                textAlign: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'action.hover'
+                }
+              }}
+              onClick={() => document.getElementById('document-upload')?.click()}
+            >
+              <input
+                id="document-upload"
+                type="file"
+                hidden
+                accept=".pdf,.jpg,.jpeg,.png,.gif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                  }
+                }}
+              />
+              <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                {selectedFile ? selectedFile.name : 'Haz clic para seleccionar un archivo'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Formatos aceptados: PDF, JPG, JPEG, PNG, GIF
+              </Typography>
+            </Box>
+
+            {selectedDocument && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Estás actualizando el documento: {selectedDocument.originalName}
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setDocumentDialogOpen(false);
+              setSelectedDocument(null);
+              setSelectedFile(null);
+              setDocumentType('');
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleUploadDocument}
+            variant="contained"
+            disabled={!selectedFile || !documentType || uploadingDocument}
+            startIcon={uploadingDocument ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+          >
+            {uploadingDocument ? 'Subiendo...' : (selectedDocument ? 'Actualizar' : 'Subir')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo para Ver Documento */}
+      <Dialog
+        open={viewDocumentDialog}
+        onClose={() => {
+          setViewDocumentDialog(false);
+          if (viewDocumentUrl && viewDocumentUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(viewDocumentUrl);
+          }
+          setViewDocumentUrl('');
+          setViewDocumentName('');
+          setViewDocumentId('');
+        }}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DescriptionIcon color="primary" />
+              <Typography variant="h6">{viewDocumentName || 'Documento'}</Typography>
+            </Box>
+            <IconButton
+              onClick={() => {
+                setViewDocumentDialog(false);
+                if (viewDocumentUrl && viewDocumentUrl.startsWith('blob:')) {
+                  URL.revokeObjectURL(viewDocumentUrl);
+                }
+                setViewDocumentUrl('');
+                setViewDocumentName('');
+                setViewDocumentId('');
+              }}
+              size="small"
+            >
+              <CancelIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ width: '100%', height: isMobile ? 'calc(100vh - 130px)' : '70vh' }}>
+            {viewDocumentUrl ? (
+              // If we have a URL, show the document
+              (() => {
+                const fileExtension = viewDocumentName?.split('.').pop()?.toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExtension || '');
+                const isPdf = fileExtension === 'pdf';
+                
+                // For blob URLs (fetched files)
+                if (viewDocumentUrl.startsWith('blob:')) {
+                  if (isPdf) {
+                    return (
+                      <iframe
+                        src={viewDocumentUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 'none' }}
+                        title={viewDocumentName}
+                      />
+                    );
+                  } else if (isImage) {
+                    return (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        height: '100%',
+                        p: 2,
+                        bgcolor: 'grey.50'
+                      }}>
+                        <img
+                          src={viewDocumentUrl}
+                          alt={viewDocumentName}
+                          style={{ 
+                            maxWidth: '100%', 
+                            maxHeight: '100%', 
+                            objectFit: 'contain',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                          }}
+                        />
+                      </Box>
+                    );
+                  } else {
+                    // Other file types in iframe
+                    return (
+                      <iframe
+                        src={viewDocumentUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 'none' }}
+                        title={viewDocumentName}
+                      />
+                    );
+                  }
+                }
+                
+                // Direct URLs (shouldn't happen with new code, but kept for safety)
+                return (
+                  <iframe
+                    src={viewDocumentUrl}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 'none' }}
+                    title={viewDocumentName}
+                  />
+                );
+              })()
+            ) : (
+              // If no URL, show error message
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                p: 4,
+                textAlign: 'center'
+              }}>
+                <ErrorIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  No se pudo cargar el documento
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  El nombre del archivo contiene caracteres especiales que causan problemas.
+                  Por favor, usa el botón de descarga para obtener el archivo.
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => handleDownloadDocument(viewDocumentId, viewDocumentName)}
+                >
+                  Descargar Documento
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={() => handleDownloadDocument(viewDocumentId, viewDocumentName)}
+          >
+            Descargar
+          </Button>
+          <Button 
+            onClick={() => {
+              setViewDocumentDialog(false);
+              if (viewDocumentUrl && viewDocumentUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(viewDocumentUrl);
+              }
+              setViewDocumentUrl('');
+              setViewDocumentName('');
+              setViewDocumentId('');
+            }}
+          >
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de Confirmación para Eliminar Documento */}
+      <Dialog
+        open={deleteDocumentDialog}
+        onClose={() => {
+          setDeleteDocumentDialog(false);
+          setDocumentToDelete(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <WarningIcon color="error" />
+            Confirmar Eliminación
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro de que deseas eliminar el documento "{documentToDelete?.name}"?
+          </Typography>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Esta acción no se puede deshacer.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setDeleteDocumentDialog(false);
+              setDocumentToDelete(null);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmDeleteDocument}
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -2227,7 +3102,7 @@ export const UserDetail: React.FC = () => {
               Editar
             </Button>
           )}
-          {tabValue === 3 && isContractor(user.role) && (
+          {tabValue === 4 && isContractor(user.role) && (
             <Button
               variant="contained"
               color="primary"

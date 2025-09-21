@@ -10,9 +10,6 @@ import {
   Divider,
   Card,
   CardContent,
-  List,
-  ListItem,
-  ListItemText,
   Alert,
   Paper,
   Dialog,
@@ -24,7 +21,10 @@ import {
   Select,
   MenuItem,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Tabs,
+  Tab,
+  IconButton
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -35,7 +35,6 @@ import {
   LocationOn as LocationIcon,
   Language as WebsiteIcon,
   Security as SecurityIcon,
-  Assignment as AssignmentIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Pause as PauseIcon,
@@ -47,6 +46,7 @@ import { companyApi } from '../../services/companyApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import CompanyDepartments from './CompanyDepartments';
+import { CompanyVerifications } from '../../components/verifications/CompanyVerifications';
 
 export const CompanyDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +60,7 @@ export const CompanyDetail: React.FC = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [tabValue, setTabValue] = useState(0);
   
   // Status change dialog
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -227,49 +228,12 @@ export const CompanyDetail: React.FC = () => {
         </Typography>
       </Breadcrumbs>
 
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
-        justifyContent: 'space-between', 
-        alignItems: { xs: 'stretch', sm: 'center' }, 
-        gap: { xs: 2, sm: 0 },
-        mb: 3 
-      }}>
-        <Box sx={{ order: { xs: 1, sm: 1 } }}>
-          <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
-            <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            {company.name}
-          </Typography>
-          {getStatusChip(company.status)}
-        </Box>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1,
-          order: { xs: 2, sm: 2 }
-        }}>
-          {canManageCompanies() && (
-            <>
-              <Button
-                variant="outlined"
-                onClick={() => setStatusDialogOpen(true)}
-                fullWidth={isXs}
-                size={isMobile ? 'medium' : 'large'}
-              >
-                {isXs ? 'Estado' : 'Cambiar Estado'}
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={!isXs ? <EditIcon /> : undefined}
-                onClick={handleEdit}
-                fullWidth={isXs}
-                size={isMobile ? 'medium' : 'large'}
-              >
-                Editar
-              </Button>
-            </>
-          )}
-        </Box>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant={isMobile ? 'h5' : 'h4'} gutterBottom>
+          <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          {company.name}
+        </Typography>
+        {getStatusChip(company.status)}
       </Box>
 
       {/* Alerts for important information */}
@@ -279,16 +243,114 @@ export const CompanyDetail: React.FC = () => {
         </Alert>
       )}
 
-      {isMobile ? (
+      {/* Tabs */}
+      <Box sx={{ 
+        bgcolor: 'background.paper',
+        borderRadius: 2,
+        overflow: 'hidden',
+        boxShadow: 1
+      }}>
+        <Tabs
+          value={tabValue}
+          onChange={(_, newValue) => setTabValue(newValue)}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            minHeight: { xs: 48, sm: 64 },
+            '& .MuiTabs-indicator': {
+              height: { xs: 3, sm: 4 },
+              backgroundColor: 'primary.main'
+            },
+            '& .MuiTabs-scroller': {
+              flexGrow: 0
+            },
+            '& .MuiTabs-flexContainer': {
+              justifyContent: 'flex-start'
+            },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: { xs: '0.8rem', sm: '1rem' },
+              minHeight: { xs: 48, sm: 64 },
+              px: { xs: 1.5, sm: 3 },
+              minWidth: { xs: 90, sm: 160 },
+              flex: isMobile ? 'none' : undefined,
+              '&:not(:last-child)': {
+                marginRight: { xs: 0, sm: 1 }
+              }
+            },
+            '& .Mui-selected': {
+              fontWeight: 600,
+              color: 'primary.main'
+            },
+            '& .MuiTabs-scrollButtons': {
+              '&.Mui-disabled': {
+                opacity: 0.3
+              }
+            }
+          }}
+        >
+          <Tab 
+            label="Información" 
+            sx={{ 
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              '& .MuiTab-iconWrapper': { display: 'none' }
+            }}
+          />
+          <Tab 
+            label="Departamentos"
+            sx={{ 
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              '& .MuiTab-iconWrapper': { display: 'none' }
+            }}
+          />
+          <Tab 
+            label="Verificaciones"
+            sx={{ 
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              '& .MuiTab-iconWrapper': { display: 'none' }
+            }}
+          />
+        </Tabs>
+        
+        {/* Tab Content */}
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          {tabValue === 0 && (
+        isMobile ? (
         // Mobile Card-Based Layout
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Basic Information Card */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <BusinessIcon />
-                Información General
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BusinessIcon />
+                  Información General
+                </Typography>
+                {canManageCompanies() && (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <IconButton 
+                      onClick={handleEdit} 
+                      color="primary"
+                      size="small"
+                      title="Editar"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton 
+                      onClick={() => setStatusDialogOpen(true)}
+                      color="secondary"
+                      size="small"
+                      title="Cambiar Estado"
+                    >
+                      <SettingsIcon />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
               <Divider sx={{ mb: 2 }} />
               
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -462,98 +524,6 @@ export const CompanyDetail: React.FC = () => {
             </Card>
           )}
 
-          {/* Certifications Card */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AssignmentIcon />
-                Certificaciones
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              {company.certifications && company.certifications.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {company.certifications.map((cert, index) => (
-                    <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }} variant="outlined">
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          {cert.name}
-                        </Typography>
-                        {getCertificationStatusChip(cert.status)}
-                      </Box>
-                      
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        <strong>Emisor:</strong> {cert.issuedBy}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        <strong>Emisión:</strong> {formatDate(cert.issueDate)}
-                      </Typography>
-                      {cert.expiryDate && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          <strong>Vencimiento:</strong> {formatDate(cert.expiryDate)}
-                        </Typography>
-                      )}
-                    </Paper>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  No hay certificaciones registradas
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Configuration Card */}
-          {company.settings && (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SettingsIcon />
-                  Configuración
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Días de Notificación:
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {company.settings.notificationDays?.map((days, index) => (
-                        <Chip 
-                          key={index} 
-                          label={`${days} días`} 
-                          size="small" 
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Cursos Requeridos:
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {company.settings.requiredCourses?.map((course, index) => (
-                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2">
-                            {course.name}
-                          </Typography>
-                          <Chip 
-                            label={course.isInitial ? 'Inicial' : 'Adicional'} 
-                            size="small" 
-                            color={course.isInitial ? 'primary' : 'default'}
-                          />
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          )}
         </Box>
       ) : (
         // Desktop Grid Layout
@@ -562,10 +532,31 @@ export const CompanyDetail: React.FC = () => {
           <Grid size={{ xs: 12, lg: 8 }}>
           <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
-                <BusinessIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Información General
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant={isMobile ? 'subtitle1' : 'h6'} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BusinessIcon />
+                  Información General
+                </Typography>
+                {canManageCompanies() && (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={handleEdit}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setStatusDialogOpen(true)}
+                    >
+                      Cambiar Estado
+                    </Button>
+                  </Box>
+                )}
+              </Box>
               <Divider sx={{ mb: 2 }} />
               
               <Grid container spacing={2}>
@@ -781,112 +772,21 @@ export const CompanyDetail: React.FC = () => {
             </Card>
           )}
           </Grid>
-
-          {/* Company Settings and Configuration */}
-          <Grid size={{ xs: 12, lg: 4 }}>
-          {company.settings && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
-                  <SettingsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  Configuración
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                <Typography variant="subtitle2" gutterBottom>
-                  Días de Notificación:
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                  {company.settings.notificationDays?.map((days, index) => (
-                    <Chip 
-                      key={index} 
-                      label={`${days} días`} 
-                      size="small" 
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
-
-                <Typography variant="subtitle2" gutterBottom>
-                  Cursos Requeridos:
-                </Typography>
-                <List sx={{ py: 0 }}>
-                  {company.settings.requiredCourses?.map((course, index) => (
-                    <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2">
-                              {course.name}
-                            </Typography>
-                            <Chip 
-                              label={course.isInitial ? 'Inicial' : 'Adicional'} 
-                              size="small" 
-                              color={course.isInitial ? 'primary' : 'default'}
-                            />
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Certifications */}
-          <Card>
-            <CardContent>
-              <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
-                <AssignmentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Certificaciones
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              {company.certifications && company.certifications.length > 0 ? (
-                <List>
-                  {company.certifications.map((cert, index) => (
-                    <ListItem key={index} disablePadding sx={{ mb: 2 }}>
-                      <Paper sx={{ width: '100%', p: 2 }} variant="outlined">
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            {cert.name}
-                          </Typography>
-                          {getCertificationStatusChip(cert.status)}
-                        </Box>
-                        
-                        <Typography variant="body2" color="textSecondary">
-                          <strong>Emisor:</strong> {cert.issuedBy}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          <strong>Emisión:</strong> {formatDate(cert.issueDate)}
-                        </Typography>
-                        {cert.expiryDate && (
-                          <Typography variant="body2" color="textSecondary">
-                            <strong>Vencimiento:</strong> {formatDate(cert.expiryDate)}
-                          </Typography>
-                        )}
-                      </Paper>
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', py: 2 }}>
-                  No hay certificaciones registradas
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-          </Grid>
         </Grid>
+      )
       )}
 
-      {/* Departamentos Section */}
-      {canManageCompanies() && (
-        <Box sx={{ mt: 4 }}>
-          <CompanyDepartments companyId={company._id} companyName={company.name} />
-        </Box>
+      {/* Tab 2: Departamentos */}
+      {tabValue === 1 && canManageCompanies() && (
+        <CompanyDepartments companyId={company._id} companyName={company.name} />
       )}
+
+      {/* Tab 3: Verificaciones */}
+      {tabValue === 2 && (
+        <CompanyVerifications companyId={company._id} companyName={company.name} />
+      )}
+        </Box>
+      </Box>
 
       {/* Status Change Dialog */}
       <Dialog 

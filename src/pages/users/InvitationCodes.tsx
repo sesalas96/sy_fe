@@ -179,7 +179,7 @@ export const InvitationCodes: React.FC = () => {
   // Load companies for the supervisor
   const loadCompanies = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/companies/supervised`, {
+      const response = await fetch(`${API_BASE_URL}/api/companies/supervised`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -225,7 +225,7 @@ export const InvitationCodes: React.FC = () => {
         limit: rowsPerPage.toString()
       });
 
-      const response = await fetch(`${API_BASE_URL}/temporary-codes?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -266,7 +266,7 @@ export const InvitationCodes: React.FC = () => {
     try {
       setBatchesLoading(true);
       const response = await fetch(
-        `${API_BASE_URL}/temporary-codes/batches?page=${batchesPage + 1}&limit=${batchesRowsPerPage}&includeStats=true`,
+        `${API_BASE_URL}/api/temporary-codes/batches?page=${batchesPage + 1}&limit=${batchesRowsPerPage}&includeStats=true`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -303,7 +303,7 @@ export const InvitationCodes: React.FC = () => {
   // Load batch details
   const loadBatchDetails = async (batchId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/batches/${batchId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/batches/${batchId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -334,7 +334,7 @@ export const InvitationCodes: React.FC = () => {
   // Batch control functions
   const handleExecuteBatch = async (batchId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/batches/${batchId}/execute`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/batches/${batchId}/execute`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -365,7 +365,7 @@ export const InvitationCodes: React.FC = () => {
 
   const handlePauseBatch = async (batchId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/batches/${batchId}/pause`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/batches/${batchId}/pause`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -396,7 +396,7 @@ export const InvitationCodes: React.FC = () => {
 
   const handleCancelBatch = async (batchId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/batches/${batchId}/cancel`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/batches/${batchId}/cancel`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -428,7 +428,7 @@ export const InvitationCodes: React.FC = () => {
   // Load statistics
   const loadStatistics = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/statistics`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/statistics`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -464,7 +464,7 @@ export const InvitationCodes: React.FC = () => {
   const handleCreateCode = async () => {
     try {
       setActionLoading(true);
-      const response = await fetch(`${API_BASE_URL}/temporary-codes`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -517,7 +517,7 @@ export const InvitationCodes: React.FC = () => {
 
     try {
       setActionLoading(true);
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/${selectedCode.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/${selectedCode.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -808,7 +808,7 @@ export const InvitationCodes: React.FC = () => {
         : `${companiesCount} empresas`;
 
       // Send all invitations using the new scheduler endpoint (creates batch)
-      const response = await fetch(`${API_BASE_URL}/temporary-codes/batches/schedule`, {
+      const response = await fetch(`${API_BASE_URL}/api/temporary-codes/batches/schedule`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

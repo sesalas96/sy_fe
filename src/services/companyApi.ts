@@ -71,86 +71,86 @@ interface BulkUpdateData {
 export const companyApi = {
   // Crear una empresa
   create: async (data: CompanyFormData) => {
-    return apiCall('POST', '/companies', data);
+    return apiCall('POST', '/api/companies', data);
   },
 
   // Obtener lista de empresas
   getAll: async (params?: CompaniesListParams) => {
-    return apiCall('GET', '/companies', null, params);
+    return apiCall('GET', '/api/companies', null, params);
   },
 
   // Obtener empresas para select/dropdown
   getSelect: async () => {
-    return apiCall('GET', '/companies/select');
+    return apiCall('GET', '/api/companies/select');
   },
 
   // Obtener una empresa por ID
   getById: async (id: string) => {
-    return apiCall('GET', `/companies/${id}`);
+    return apiCall('GET', `/api/companies/${id}`);
   },
 
   // Actualizar una empresa
   update: async (id: string, data: Partial<CompanyFormData>) => {
-    return apiCall('PUT', `/companies/${id}`, data);
+    return apiCall('PUT', `/api/companies/${id}`, data);
   },
 
   // Actualizar estado de empresa
   updateStatus: async (id: string, status: string) => {
-    return apiCall('PATCH', `/companies/${id}/status`, { status });
+    return apiCall('PATCH', `/api/companies/${id}/status`, { status });
   },
 
   // Eliminar/Desactivar empresa
   delete: async (id: string) => {
-    return apiCall('DELETE', `/companies/${id}`);
+    return apiCall('DELETE', `/api/companies/${id}`);
   },
 
   // Actualizar configuración de empresa
   updateSettings: async (id: string, settings: any) => {
-    return apiCall('PUT', `/companies/${id}/settings`, settings);
+    return apiCall('PUT', `/api/companies/${id}/settings`, settings);
   },
 
   // Obtener dashboard de empresa
   getDashboard: async (id: string) => {
-    return apiCall('GET', `/companies/${id}/dashboard`);
+    return apiCall('GET', `/api/companies/${id}/dashboard`);
   },
 
   // Obtener usuarios de una empresa
   getUsers: async (id: string, params?: CompanyUsersParams) => {
-    return apiCall('GET', `/companies/${id}/users`, null, params);
+    return apiCall('GET', `/api/companies/${id}/users`, null, params);
   },
 
   // Obtener contratistas de una empresa
   getContractors: async (id: string, params?: CompanyContractorsParams) => {
-    return apiCall('GET', `/companies/${id}/contractors`, null, params);
+    return apiCall('GET', `/api/companies/${id}/contractors`, null, params);
   },
 
   // Obtener estadísticas de empresa
   getStats: async (id: string) => {
-    return apiCall('GET', `/companies/${id}/stats`);
+    return apiCall('GET', `/api/companies/${id}/stats`);
   },
 
   // Obtener estadísticas generales
   getGeneralStats: async () => {
-    return apiCall('GET', '/companies/stats');
+    return apiCall('GET', '/api/companies/stats');
   },
 
   // Obtener certificaciones por vencer
   getExpiringCertifications: async (params?: { daysAhead?: number; companyId?: string }) => {
-    return apiCall('GET', '/companies/certifications/expiring', null, params);
+    return apiCall('GET', '/api/companies/certifications/expiring', null, params);
   },
 
   // Verificar si tiene contratistas activos
   hasActiveContractors: async (id: string) => {
-    return apiCall('GET', `/companies/${id}/has-active-contractors`);
+    return apiCall('GET', `/api/companies/${id}/has-active-contractors`);
   },
 
   // Generar reportes de empresa
   getReports: async (id: string, params: CompanyReportsParams) => {
-    return apiCall('GET', `/companies/${id}/reports`, null, params);
+    return apiCall('GET', `/api/companies/${id}/reports`, null, params);
   },
 
   // Actualización masiva de empresas
   bulkUpdate: async (data: BulkUpdateData) => {
-    return apiCall('POST', '/companies/bulk-update', data);
+    return apiCall('POST', '/api/companies/bulk-update', data);
   }
 };

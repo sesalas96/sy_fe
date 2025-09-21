@@ -120,7 +120,7 @@ class FormsApiService {
       if (params?.category) queryParams.append('category', params.category);
       if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
 
-      const response = await fetch(`${BASE_URL}/forms?${queryParams.toString()}`, {
+      const response = await fetch(`${BASE_URL}/api/forms?${queryParams.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -152,7 +152,7 @@ class FormsApiService {
       queryParams.append('q', query);
       if (limit) queryParams.append('limit', limit.toString());
 
-      const response = await fetch(`${BASE_URL}/forms/templates/search?${queryParams.toString()}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/templates/search?${queryParams.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -179,7 +179,7 @@ class FormsApiService {
   // Obtener formulario por ID
   async getFormById(formId: string): Promise<ApiResponse<Form>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/${formId}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/${formId}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -206,7 +206,7 @@ class FormsApiService {
   // Crear formulario
   async createForm(formData: FormCreateData): Promise<ApiResponse<Form>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms`, {
+      const response = await fetch(`${BASE_URL}/api/forms`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(formData)
@@ -235,7 +235,7 @@ class FormsApiService {
   // Actualizar formulario
   async updateForm(formId: string, formData: Partial<FormCreateData>): Promise<ApiResponse<Form>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/${formId}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/${formId}`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(formData)
@@ -264,7 +264,7 @@ class FormsApiService {
   // Duplicar formulario
   async duplicateForm(formId: string, newName: string): Promise<ApiResponse<Form>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/templates/${formId}/duplicate`, {
+      const response = await fetch(`${BASE_URL}/api/forms/templates/${formId}/duplicate`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ name: newName })
@@ -293,7 +293,7 @@ class FormsApiService {
   // Desactivar formulario (soft delete)
   async deleteForm(formId: string): Promise<ApiResponse<void>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/${formId}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/${formId}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
@@ -323,7 +323,7 @@ class FormsApiService {
       const queryParams = new URLSearchParams();
       queryParams.append('includeInactive', includeInactive.toString());
 
-      const response = await fetch(`${BASE_URL}/forms/templates/category/${category}?${queryParams.toString()}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/templates/category/${category}?${queryParams.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -350,7 +350,7 @@ class FormsApiService {
   // Obtener formularios por categoría de permiso de trabajo
   async getFormsByWorkPermitCategory(category: string): Promise<ApiResponse<Form[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/templates/work-permit-category/${category}`, {
+      const response = await fetch(`${BASE_URL}/api/forms/templates/work-permit-category/${category}`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });
@@ -377,7 +377,7 @@ class FormsApiService {
   // Obtener estadísticas de formularios
   async getFormStats(): Promise<ApiResponse<FormStats>> {
     try {
-      const response = await fetch(`${BASE_URL}/forms/stats`, {
+      const response = await fetch(`${BASE_URL}/api/forms/stats`, {
         method: 'GET',
         headers: this.getAuthHeaders()
       });

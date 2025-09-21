@@ -315,7 +315,6 @@ export const CompanyUserDetail: React.FC = () => {
                       <PhoneIcon />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Teléfono"
                       secondary={user.profile.phone}
                     />
                   </ListItem>

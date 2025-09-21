@@ -530,7 +530,6 @@ export const Companies: React.FC = () => {
               <TableCell>Espacio de Trabajo</TableCell>
               <TableCell>Identificación Fiscal</TableCell>
               <TableCell>Industria</TableCell>
-              <TableCell>Empleados</TableCell>
               <TableCell>Contacto</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell>Fecha Registro</TableCell>
@@ -552,7 +551,6 @@ export const Companies: React.FC = () => {
                 </TableCell>
                 <TableCell>{company.ruc || company.taxId}</TableCell>
                 <TableCell>{company.industry || 'No especificada'}</TableCell>
-                <TableCell>{company.employeeCount || 'N/A'}</TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">

@@ -29,7 +29,8 @@ import {
   useTheme,
   useMediaQuery,
   Card,
-  CardContent
+  CardContent,
+  TablePagination
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -68,6 +69,10 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
   const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
   const [submitting, setSubmitting] = useState(false);
   
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  
   // User management states
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
@@ -100,7 +105,7 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
         companyId,
         isActive: true 
       });
-      setDepartments(departmentsList.sort((a, b) => (a.approvalOrder || 99) - (b.approvalOrder || 99)));
+      setDepartments(departmentsList.sort((a, b) => (a.approvalOrder || 10) - (b.approvalOrder || 10)));
     } catch (err) {
       setError('Error al cargar los departamentos');
       console.error('Error loading departments:', err);
@@ -118,7 +123,7 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
         description: department.description || '',
         companyId: department.companyId,
         approvalAuthority: department.approvalAuthority,
-        requiredRole: department.requiredRole || '',
+        requiredRole: department.approvalAuthority ? (department.requiredRole || '') : '',
         approvalOrder: department.approvalOrder || 1,
         settings: {
           requiresComments: department.settings?.requiresComments || false,
@@ -160,8 +165,8 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
     if (formData.approvalAuthority && !formData.requiredRole) {
       errors.requiredRole = 'El rol requerido es necesario para departamentos con autoridad de aprobación';
     }
-    if (formData.approvalOrder && (formData.approvalOrder < 1 || formData.approvalOrder > 99)) {
-      errors.approvalOrder = 'El orden de aprobación debe estar entre 1 y 99';
+    if (formData.approvalOrder && (formData.approvalOrder < 1 || formData.approvalOrder > 10)) {
+      errors.approvalOrder = 'El orden de aprobación debe estar entre 1 y 10';
     }
 
     // Verificar duplicados
@@ -190,13 +195,24 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
           name: formData.name,
           description: formData.description,
           approvalAuthority: formData.approvalAuthority,
-          requiredRole: formData.requiredRole || undefined,
+          requiredRole: formData.approvalAuthority ? (formData.requiredRole || undefined) : undefined,
           approvalOrder: formData.approvalOrder,
           settings: formData.settings
         };
         await DepartmentService.updateDepartment(editingDepartment._id, updateData);
       } else {
-        await DepartmentService.createDepartment(formData);
+        // Prepare data for creation
+        const createData: DepartmentCreateData = {
+          ...formData,
+          requiredRole: formData.approvalAuthority ? formData.requiredRole : undefined
+        };
+        
+        // Remove requiredRole if approvalAuthority is false
+        if (!formData.approvalAuthority) {
+          delete (createData as any).requiredRole;
+        }
+        
+        await DepartmentService.createDepartment(createData);
       }
       
       await loadDepartments();
@@ -253,6 +269,22 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
     }
     return <Chip label="Activo" color="success" size="small" />;
   };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Get paginated departments
+  const paginatedDepartments = departments.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   if (loading) {
     return (
@@ -314,7 +346,7 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
               </CardContent>
             </Card>
           ) : (
-            departments.map((department) => (
+            paginatedDepartments.map((department) => (
               <Card key={department._id}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -396,6 +428,22 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
               </Card>
             ))
           )}
+          
+          {/* Mobile Pagination */}
+          {departments.length > 0 && (
+            <Card sx={{ mt: 2 }}>
+              <TablePagination
+                component="div"
+                count={departments.length}
+                page={page}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                labelRowsPerPage="Por página:"
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+              />
+            </Card>
+          )}
         </Box>
       ) : (
         // Desktop Table Layout
@@ -422,7 +470,7 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
                   </TableCell>
                 </TableRow>
               ) : (
-                departments.map((department) => (
+                paginatedDepartments.map((department) => (
                   <TableRow key={department._id} hover>
                     <TableCell>
                       <Typography variant="subtitle2">{department.name}</Typography>
@@ -491,6 +539,20 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
               )}
             </TableBody>
           </Table>
+          
+          {/* Desktop Pagination */}
+          {departments.length > 0 && (
+            <TablePagination
+              component="div"
+              count={departments.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Filas por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            />
+          )}
         </TableContainer>
       )}
 
@@ -594,7 +656,7 @@ export const CompanyDepartments: React.FC<CompanyDepartmentsProps> = ({ companyI
                   onChange={(e) => setFormData(prev => ({ ...prev, approvalOrder: parseInt(e.target.value) || 1 }))}
                   error={!!formErrors.approvalOrder}
                   helperText={formErrors.approvalOrder || 'Orden en el proceso de aprobación'}
-                  inputProps={{ min: 1, max: 99 }}
+                  inputProps={{ min: 1, max: 10 }}
                   fullWidth
                 />
               </Box>
