@@ -7,6 +7,7 @@ import { ImpersonationBanner } from '../ImpersonationBanner';
 import { useAuth } from '../../contexts/AuthContext';
 import HelpCenter from '../HelpCenter/HelpCenter';
 import RoleInfoModal from '../RoleInfoModal';
+import { PendingVerificationsPopup } from '../verifications/PendingVerificationsPopup';
 
 const drawerWidth = 220;
 
@@ -378,6 +379,9 @@ export const Layout: React.FC = () => {
         role={user?.role}
         roleName={getRoleLabel(user?.role, true)}
       />
+      
+      {/* Pending Verifications Popup */}
+      <PendingVerificationsPopup />
     </Box>
   );
 };

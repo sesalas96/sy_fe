@@ -30,7 +30,6 @@ import {
   Tabs,
   Snackbar,
   Alert as MuiAlert,
-  Tooltip,
   useTheme,
   useMediaQuery,
   IconButton,
@@ -40,10 +39,10 @@ import {
   Select,
   MenuItem,
   Stack,
-  InputAdornment,
   TablePagination,
   CircularProgress,
-  LinearProgress
+  LinearProgress,
+  Divider
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -55,21 +54,18 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   VerifiedUser as VerifiedIcon,
-  Assessment as AssessmentIcon,
   WorkspacePremium as CertificationIcon,
-  Gavel as GavelIcon,
   Add as AddIcon,
+  Assignment as AssignmentIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
   Download as DownloadIcon,
   Visibility as VisibilityIcon,
   AccessTime as AccessTimeIcon,
-  Group as TeamIcon,
   Badge as BadgeIcon,
   History as HistoryIcon,
   School as SchoolIcon,
-  Sync as SyncIcon,
   Description as DescriptionIcon,
   Folder as FolderIcon,
   InsertDriveFile as FileIcon,
@@ -77,9 +73,15 @@ import {
   Image as ImageIcon,
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Close as CloseIcon,
+  Login as LoginIcon,
+  Fullscreen as FullscreenIcon,
+  FullscreenExit as FullscreenExitIcon,
+  CameraAlt as CameraIcon,
+  PhotoLibrary as PhotoLibraryIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { User, UserRole } from '../../types';
 import { userApi } from '../../services/userApi';
 import { contractorApi } from '../../services/contractorApi';
@@ -89,6 +91,9 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { SkeletonLoader } from '../../components/ui/SkeletonLoader';
 import { verificationsApi } from '../../services/verificationsApi';
 import { UserVerificationsPanel } from '../../components/verifications/UserVerificationsPanel';
+import { UserCompanyVerificationsManager } from '../../components/verifications/UserCompanyVerificationsManager';
+import { reviewsApi } from '../../services/reviewsApi';
+import { Review, ReviewSummary as ReviewSummaryType, CreateReviewInput } from '../../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -127,20 +132,6 @@ interface VerificationInfo {
   }[];
 }
 
-interface Evaluation {
-  id: string;
-  evaluatedBy: string;
-  evaluatedAt: Date;
-  scores: {
-    safety: number;
-    quality: number;
-    timeliness: number;
-    communication: number;
-  };
-  average: number;
-  comments?: string;
-}
-
 interface Certification {
   id: string;
   type: string;
@@ -155,25 +146,11 @@ interface Certification {
   verifiedAt?: Date;
 }
 
-interface TermsAcceptance {
-  termsAndConditions: {
-    accepted: boolean;
-    version: string;
-    acceptedAt?: Date;
-    ipAddress?: string;
-  };
-  privacyPolicy: {
-    accepted: boolean;
-    version: string;
-    acceptedAt?: Date;
-    ipAddress?: string;
-  };
-}
-
 export const UserDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasRole, user: currentUser } = useAuth();
+  const location = useLocation();
+  const { hasRole, user: currentUser, impersonateUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -182,20 +159,17 @@ export const UserDetail: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [tabValue, setTabValue] = useState(0);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState(false);
   
   // Estados para verificaciones
   const [userHasPendingVerifications, setUserHasPendingVerifications] = useState(false);
-  const [userVerifications, setUserVerifications] = useState<any[]>([]);
   
   // Estados para contratistas
   const [verificationInfo, setVerificationInfo] = useState<VerificationInfo | null>(null);
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [certifications, setCertifications] = useState<Certification[]>([]);
-  const [termsAcceptance, setTermsAcceptance] = useState<TermsAcceptance | null>(null);
   
   // Estados para diálogos
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
-  const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
   const [certificationDialogOpen, setCertificationDialogOpen] = useState(false);
   const [newCertification, setNewCertification] = useState({
     type: '',
@@ -210,13 +184,6 @@ export const UserDetail: React.FC = () => {
   // Estados para formularios
   const [verificationStatus, setVerificationStatus] = useState<string>('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [evaluationScores, setEvaluationScores] = useState({
-    safety: 0,
-    quality: 0,
-    timeliness: 0,
-    communication: 0
-  });
-  const [evaluationComments, setEvaluationComments] = useState('');
   
   // Estados para el historial
   const [historyType, setHistoryType] = useState<'access' | 'permits' | 'equipment' | 'tasks'>('access');
@@ -230,7 +197,12 @@ export const UserDetail: React.FC = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [, setCourseProgress] = useState<any>(null);
   const [talentLMSProgress, setTalentLMSProgress] = useState<any>(null);
-  const [syncingWithTalentLMS, setSyncingWithTalentLMS] = useState(false);
+  const [availableCourses, setAvailableCourses] = useState<any[]>([]);
+  const [courseTabValue, setCourseTabValue] = useState(0);
+  const [userCourses, setUserCourses] = useState<any>(null);
+  const [talentLMSUser, setTalentLMSUser] = useState<any>(null);
+  const [checkingTalentLMS, setCheckingTalentLMS] = useState(false);
+  const [signingUpToTalentLMS, setSigningUpToTalentLMS] = useState(false);
   
   // Estados para documentos
   const [userDocuments, setUserDocuments] = useState<any[]>([]);
@@ -245,7 +217,23 @@ export const UserDetail: React.FC = () => {
   const [viewDocumentName, setViewDocumentName] = useState('');
   const [viewDocumentId, setViewDocumentId] = useState('');
   const [deleteDocumentDialog, setDeleteDocumentDialog] = useState(false);
+  
+  // Estados para el diálogo de imagen del avatar
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [fullscreenAvatar, setFullscreenAvatar] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [avatarUpdateKey, setAvatarUpdateKey] = useState(0);
   const [documentToDelete, setDocumentToDelete] = useState<{id: string, name: string} | null>(null);
+  
+  // Estados para reviews
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummaryType | null>(null);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
   
   // Snackbar
   const [snackbar, setSnackbar] = useState<{
@@ -296,8 +284,23 @@ export const UserDetail: React.FC = () => {
               const blob = await avatarResponse.blob();
               const avatarUrl = URL.createObjectURL(blob);
               
+              // Limpiar URL anterior si existe
+              if (userAvatarUrl) {
+                URL.revokeObjectURL(userAvatarUrl);
+              }
+              
               setUserAvatarUrl(avatarUrl);
-              console.log('User avatar loaded successfully');
+              setAvatarUpdateKey(prev => prev + 1); // Forzar re-renderizado
+              console.log('User avatar loaded successfully, URL:', avatarUrl);
+            } else {
+              console.error('Error downloading avatar:', avatarResponse.status, avatarResponse.statusText);
+              
+              // Si es error 500, probablemente es el problema del Content-Disposition
+              if (avatarResponse.status === 500) {
+                console.warn('Avatar download failed with 500 error - likely filename encoding issue');
+              }
+              
+              setUserAvatarUrl(null);
             }
           } else {
             console.log('No selfie file found for user');
@@ -312,7 +315,7 @@ export const UserDetail: React.FC = () => {
       console.error('Error loading user avatar:', error);
       setUserAvatarUrl(null);
     }
-  }, []);
+  }, [userAvatarUrl]);
 
   const loadContractorDataFromAPI = useCallback(async (userId: string) => {
     try {
@@ -322,22 +325,10 @@ export const UserDetail: React.FC = () => {
         setVerificationInfo(verificationResponse.data);
       }
 
-      // Cargar evaluaciones
-      const evaluationsResponse = await contractorApi.getEvaluations(userId);
-      if (evaluationsResponse.success && evaluationsResponse.data) {
-        setEvaluations(evaluationsResponse.data);
-      }
-
       // Cargar certificaciones
       const certificationsResponse = await contractorApi.getCertifications(userId);
       if (certificationsResponse.success && certificationsResponse.data) {
         setCertifications(certificationsResponse.data);
-      }
-
-      // Cargar aceptación de términos
-      const termsResponse = await contractorApi.getTermsAcceptance(userId);
-      if (termsResponse.success && termsResponse.data) {
-        setTermsAcceptance(termsResponse.data);
       }
       
       // El historial de acceso se cargará mediante el useEffect cuando se actualice el user
@@ -376,7 +367,7 @@ export const UserDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, loadContractorDataFromAPI, loadUserAvatar]);
+  }, [id, loadContractorDataFromAPI, loadUserAvatar, isContractor]);
 
   const loadContractorData = async (_userId: string) => {
     try {
@@ -410,35 +401,6 @@ export const UserDetail: React.FC = () => {
         ]
       });
 
-      setEvaluations([
-        {
-          id: '1',
-          evaluatedBy: 'Supervisor Juan',
-          evaluatedAt: new Date('2024-02-15'),
-          scores: {
-            safety: 95,
-            quality: 88,
-            timeliness: 92,
-            communication: 85
-          },
-          average: 90,
-          comments: 'Excelente desempeño en seguridad'
-        },
-        {
-          id: '2',
-          evaluatedBy: 'Supervisor María',
-          evaluatedAt: new Date('2024-01-20'),
-          scores: {
-            safety: 90,
-            quality: 85,
-            timeliness: 88,
-            communication: 90
-          },
-          average: 88.25,
-          comments: 'Buen trabajo en equipo'
-        }
-      ]);
-
       setCertifications([
         {
           id: '1',
@@ -465,32 +427,24 @@ export const UserDetail: React.FC = () => {
           verifiedAt: new Date('2023-09-05')
         }
       ]);
-
-      setTermsAcceptance({
-        termsAndConditions: {
-          accepted: true,
-          version: '1.0.0',
-          acceptedAt: new Date('2024-01-01'),
-          ipAddress: '192.168.1.100'
-        },
-        privacyPolicy: {
-          accepted: true,
-          version: '1.0.0',
-          acceptedAt: new Date('2024-01-01'),
-          ipAddress: '192.168.1.100'
-        }
-      });
     } catch (err) {
       console.error('Error loading contractor data:', err);
     }
   };
 
-  const isContractor = (role: UserRole) => {
+  const isContractor = useCallback((role: UserRole) => {
     return [
       UserRole.CONTRATISTA_ADMIN,
       UserRole.CONTRATISTA_SUBALTERNOS,
       UserRole.CONTRATISTA_HUERFANO
     ].includes(role);
+  }, []);
+
+  // Helper function to get course name from available courses
+  const getCourseName = (courseId: string) => {
+    if (!availableCourses || availableCourses.length === 0) return null;
+    const course = availableCourses.find(c => c.id === courseId);
+    return course?.name || null;
   };
 
   const canEditUser = () => {
@@ -506,8 +460,211 @@ export const UserDetail: React.FC = () => {
     navigate(`/users/${id}/edit`);
   };
 
+  const handleImpersonate = async () => {
+    if (!user || !impersonateUser) return;
+    
+    try {
+      setImpersonating(true);
+      await impersonateUser(user._id || user.id || '');
+      // Navigate to dashboard after successful impersonation
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+      setError('Error al impersonar usuario');
+    } finally {
+      setImpersonating(false);
+    }
+  };
+
   const handleSnackbarClose = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const handleAvatarFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validar tipo de archivo
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setSnackbar({
+          open: true,
+          message: 'Por favor selecciona una imagen válida (JPG, PNG, WEBP)',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Validar tamaño (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSnackbar({
+          open: true,
+          message: 'La imagen no debe superar los 5MB',
+          severity: 'error'
+        });
+        return;
+      }
+
+      setSelectedAvatarFile(file);
+      
+      // Crear preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarPreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedAvatarFile || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('document', selectedAvatarFile);
+
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/user/${user._id || user.id}/selfie`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Actualizar la imagen del avatar inmediatamente
+        if (data.file && data.file.id) {
+          try {
+            // Cargar la nueva imagen directamente
+            const avatarResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app'}/api/contractor-files/download/${data.file.id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (avatarResponse.ok) {
+              const blob = await avatarResponse.blob();
+              const newAvatarUrl = URL.createObjectURL(blob);
+              
+              // Limpiar la URL anterior si existe
+              if (userAvatarUrl) {
+                URL.revokeObjectURL(userAvatarUrl);
+              }
+              
+              // Actualizar el estado con la nueva URL
+              setUserAvatarUrl(newAvatarUrl);
+              setAvatarUpdateKey(prev => prev + 1); // Forzar re-renderizado
+              console.log('Avatar URL updated to:', newAvatarUrl);
+            } else if (avatarResponse.status === 500) {
+              // Si es error 500, podría ser el problema del Content-Disposition
+              // Recargar los datos del usuario completo como alternativa
+              console.warn('Error downloading avatar, reloading user data');
+              await loadUserAvatar(user);
+            }
+          } catch (downloadError) {
+            console.error('Error downloading new avatar:', downloadError);
+            // Como fallback, recargar el avatar del usuario
+            await loadUserAvatar(user);
+          }
+        }
+
+        setSnackbar({
+          open: true,
+          message: 'Imagen actualizada exitosamente',
+          severity: 'success'
+        });
+        
+        setAvatarDialogOpen(false);
+        setSelectedAvatarFile(null);
+        setAvatarPreviewUrl(null);
+      } else {
+        throw new Error('Error al actualizar la imagen');
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error al actualizar la imagen',
+        severity: 'error'
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarDialogClose = () => {
+    setAvatarDialogOpen(false);
+    setSelectedAvatarFile(null);
+    setFullscreenAvatar(false);
+    setCameraActive(false);
+    
+    // Detener la cámara si está activa
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    
+    // Limpiar la URL del preview si existe
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarPreviewUrl(null);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      setStream(mediaStream);
+      setCameraActive(true);
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setSnackbar({
+        open: true,
+        message: 'No se pudo acceder a la cámara',
+        severity: 'error'
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    const video = document.getElementById('avatar-video') as HTMLVideoElement;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `selfie_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setSelectedAvatarFile(file);
+          setAvatarPreviewUrl(URL.createObjectURL(blob));
+          stopCamera();
+        }
+      }, 'image/jpeg', 0.9);
+    }
   };
 
   const getRoleLabel = (role: UserRole) => {
@@ -538,12 +695,6 @@ export const UserDetail: React.FC = () => {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'success.main';
-    if (score >= 75) return 'warning.main';
-    if (score >= 60) return 'warning.dark';
-    return 'error.main';
-  };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -552,6 +703,10 @@ export const UserDetail: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  const handleCourseTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setCourseTabValue(newValue);
   };
 
   const formatDate = (date: Date | string) => {
@@ -621,6 +776,25 @@ export const UserDetail: React.FC = () => {
     }
   }, [user?._id, user?.id]);
 
+  const checkTalentLMSUser = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setCheckingTalentLMS(true);
+    try {
+      const response = await coursesApi.searchTalentLMSUser({ email: user.email });
+      if (response.success && response.data) {
+        setTalentLMSUser(response.data);
+      } else {
+        setTalentLMSUser(null);
+      }
+    } catch (error) {
+      console.error('Error checking TalentLMS user:', error);
+      setTalentLMSUser(null);
+    } finally {
+      setCheckingTalentLMS(false);
+    }
+  }, [user?.email]);
+
   const loadCourseProgress = useCallback(async () => {
     if (!user?._id && !user?.id) return;
     
@@ -628,27 +802,54 @@ export const UserDetail: React.FC = () => {
     setCoursesLoading(true);
     
     try {
-      // Cargar progreso de cursos del usuario
-      const progressResponse = await coursesApi.getUserProgress(userId);
-      if (progressResponse.success) {
-        setCourseProgress(progressResponse.data);
+      // Para todos los usuarios, cargar progreso de TalentLMS
+      try {
+        const talentProgress = await coursesApi.getUserTalentLMSProgress(userId);
+        setTalentLMSProgress(talentProgress);
+      } catch (error) {
+        console.error('Error loading TalentLMS progress:', error);
+        // If user is not in TalentLMS yet, it's ok
       }
       
-      // Si es contratista, cargar también el progreso de TalentLMS
-      if (isContractor(user.role)) {
-        try {
-          const talentProgress = await coursesApi.getContractorProgress(userId);
-          setTalentLMSProgress(talentProgress);
-        } catch (error) {
-          console.error('Error loading TalentLMS progress:', error);
+      // Cargar cursos del usuario (iniciales y adicionales)
+      try {
+        const userCoursesResponse = await coursesApi.getUserCourses(userId);
+        if (userCoursesResponse.success && userCoursesResponse.data) {
+          setUserCourses(userCoursesResponse.data);
+        } else {
+          setUserCourses({
+            initial: [],
+            additional: [],
+            enrollments: [],
+            stats: null
+          });
         }
+      } catch (error) {
+        console.error('Error loading user courses:', error);
+        // Set empty structure instead of leaving null
+        setUserCourses({
+          initial: [],
+          additional: [],
+          enrollments: [],
+          stats: null
+        });
+      }
+      
+      // Cargar cursos disponibles
+      try {
+        const availableCoursesResponse = await coursesApi.getTalentLMSAvailableCourses();
+        if (availableCoursesResponse.success && availableCoursesResponse.data) {
+          setAvailableCourses(availableCoursesResponse.data);
+        }
+      } catch (error) {
+        console.error('Error loading available courses:', error);
       }
     } catch (error) {
       console.error('Error loading course progress:', error);
     } finally {
       setCoursesLoading(false);
     }
-  }, [user?._id, user?.id, user?.role]);
+  }, [user?._id, user?.id]);
 
   const loadUserDocuments = useCallback(async () => {
     if (!user?._id && !user?.id) return;
@@ -678,6 +879,82 @@ export const UserDetail: React.FC = () => {
     }
   }, [user?._id, user?.id]);
 
+  const loadUserReviews = useCallback(async () => {
+    if (!user?._id && !user?.id) return;
+    
+    const userId = user._id || user.id || '';
+    setReviewsLoading(true);
+    
+    try {
+      // Load reviews for the user (as contractor)
+      const reviewsResponse = await reviewsApi.getContractorReviews(userId);
+      setReviews(reviewsResponse.reviews || []);
+      
+      // Load review summary - only if reviews exist
+      if (reviewsResponse.reviews && reviewsResponse.reviews.length > 0) {
+        try {
+          const summaryResponse = await reviewsApi.getContractorSummary(userId);
+          setReviewSummary(summaryResponse);
+        } catch (summaryError) {
+          console.error('Error loading review summary:', summaryError);
+          // Calculate summary locally if API fails
+          const localSummary = calculateLocalSummary(reviewsResponse.reviews);
+          setReviewSummary(localSummary);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user reviews:', error);
+      // Set empty state instead of retrying
+      setReviews([]);
+      setReviewSummary(null);
+      
+      // Show error to user if it's not a 404
+      if (error instanceof Error && !error.message.includes('404')) {
+        setSnackbar({
+          open: true,
+          message: 'Error al cargar las evaluaciones',
+          severity: 'error'
+        });
+      }
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [user?._id, user?.id]);
+  
+  // Helper function to calculate summary locally
+  const calculateLocalSummary = (reviews: Review[]): ReviewSummaryType => {
+    const totalReviews = reviews.length;
+    const ratings = reviews.map(r => r.rating);
+    const averageRating = ratings.reduce((a, b) => a + b, 0) / totalReviews;
+    
+    const metrics = {
+      punctuality: reviews.map(r => r.punctuality).reduce((a, b) => a + b, 0) / totalReviews,
+      quality: reviews.map(r => r.quality).reduce((a, b) => a + b, 0) / totalReviews,
+      safety: reviews.map(r => r.safety).reduce((a, b) => a + b, 0) / totalReviews,
+      communication: reviews.map(r => r.communication).reduce((a, b) => a + b, 0) / totalReviews,
+      professionalBehavior: reviews.map(r => r.professionalBehavior).reduce((a, b) => a + b, 0) / totalReviews,
+    };
+    
+    const wouldHireAgainCount = reviews.filter(r => r.wouldHireAgain).length;
+    const wouldHireAgainPercentage = (wouldHireAgainCount / totalReviews) * 100;
+    
+    const ratingDistribution = {
+      '1': reviews.filter(r => Math.floor(r.rating) === 1).length,
+      '2': reviews.filter(r => Math.floor(r.rating) === 2).length,
+      '3': reviews.filter(r => Math.floor(r.rating) === 3).length,
+      '4': reviews.filter(r => Math.floor(r.rating) === 4).length,
+      '5': reviews.filter(r => Math.floor(r.rating) === 5).length,
+    };
+    
+    return {
+      totalReviews,
+      averageRating,
+      wouldHireAgainPercentage,
+      metrics,
+      ratingDistribution
+    };
+  };
+
   useEffect(() => {
     loadUserData();
   }, [id, loadUserData]);
@@ -691,6 +968,21 @@ export const UserDetail: React.FC = () => {
     };
   }, [userAvatarUrl]);
 
+  // Debug: Log cuando cambia userAvatarUrl
+  useEffect(() => {
+    console.log('userAvatarUrl changed to:', userAvatarUrl);
+  }, [userAvatarUrl]);
+
+  // Configurar el video cuando el stream cambia
+  useEffect(() => {
+    if (stream && cameraActive) {
+      const video = document.getElementById('avatar-video') as HTMLVideoElement;
+      if (video) {
+        video.srcObject = stream;
+      }
+    }
+  }, [stream, cameraActive]);
+
   useEffect(() => {
     if (user && historyType === 'access') {
       loadAccessHistory(accessFilter);
@@ -698,16 +990,25 @@ export const UserDetail: React.FC = () => {
   }, [user, accessFilter, historyType, loadAccessHistory]);
 
   useEffect(() => {
-    if (user && tabValue === 2) { // Tab de Cursos
+    // Determine if user can view company verifications
+    const canView = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+    const coursesIdx = canView ? 2 : 1;
+    
+    if (user && tabValue === coursesIdx) { // Tab de Cursos
       loadCourseProgress();
+      checkTalentLMSUser();
     }
-  }, [user, tabValue, loadCourseProgress]);
+  }, [user, tabValue, hasRole, loadCourseProgress, checkTalentLMSUser]);
 
   useEffect(() => {
-    if (user && tabValue === 3) { // Tab de Documentos
+    // Determine if user can view company verifications
+    const canView = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+    const documentsIdx = canView ? 3 : 2;
+    
+    if (user && tabValue === documentsIdx) { // Tab de Documentos
       loadUserDocuments();
     }
-  }, [user, tabValue, loadUserDocuments]);
+  }, [user, tabValue, hasRole, loadUserDocuments]);
 
   // Verificar si el usuario actual (el que está viendo la página) tiene verificaciones pendientes
   useEffect(() => {
@@ -729,36 +1030,142 @@ export const UserDetail: React.FC = () => {
     checkUserVerifications();
   }, [currentUser, user]);
 
-  const handleSyncWithTalentLMS = async () => {
-    if (!user?._id && !user?.id) return;
+  // Handle navigation from users list to open verifications tab
+  useEffect(() => {
+    if (location.state && (location.state as any).openVerificationsTab && user && !loading) {
+      // Calculate the correct tab index for "Verificaciones de Empresa"
+      const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+      
+      if (canViewCompanyVerifications) {
+        // Base tabs: ['Información General', 'Historial', 'Cursos', 'Documentos'] = 4 tabs
+        let verificationTabIndex = 4;
+        
+        // Add 1 if "Verificarme" tab is present
+        if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+          verificationTabIndex += 1;
+        }
+        
+        // Set the tab to the company verifications tab
+        setTabValue(verificationTabIndex);
+      }
+    }
+  }, [location.state, user, loading, hasRole, userHasPendingVerifications, currentUser]);
+
+  // Handle navigation from users list to open evaluations tab
+  useEffect(() => {
+    if (location.state && (location.state as any).openEvaluationsTab && user && !loading) {
+      if (isContractor(user.role)) {
+        // For contractors, "Evaluaciones" is in the contractor-specific tabs
+        // Base tabs: ['Información General', 'Historial', 'Cursos', 'Documentos'] = 4 tabs
+        let evaluationTabIndex = 4;
+        
+        // Add 1 if "Verificarme" tab is present
+        if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+          evaluationTabIndex += 1;
+        }
+        
+        // Add 1 if "Verificaciones de Empresa" tab is present
+        const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+        if (canViewCompanyVerifications) {
+          evaluationTabIndex += 1;
+        }
+        
+        // For contractor roles, add 1 for "Verificación" tab before "Evaluaciones"
+        evaluationTabIndex += 1;
+        
+        // Set the tab to the evaluations tab
+        setTabValue(evaluationTabIndex);
+      } else {
+        // For non-contractors, the evaluation information might be in the general info tab
+        // or we might want to show it differently. For now, go to the general info tab
+        setTabValue(0);
+      }
+    }
+  }, [location.state, user, loading, hasRole, userHasPendingVerifications, currentUser]);
+
+  // Load reviews when evaluations tab is selected
+  useEffect(() => {
+    if (user && isContractor(user.role)) {
+      // Calculate evaluations tab index
+      let evaluationTabIndex = 4; // Base tabs
+      
+      if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+        evaluationTabIndex += 1;
+      }
+      
+      const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+      if (canViewCompanyVerifications) {
+        evaluationTabIndex += 1;
+      }
+      
+      evaluationTabIndex += 1; // "Verificación" tab
+      
+      if (tabValue === evaluationTabIndex && !reviewsLoaded && !reviewsLoading) {
+        loadUserReviews();
+        setReviewsLoaded(true);
+      }
+    }
+  }, [user, tabValue, isContractor, userHasPendingVerifications, currentUser, hasRole, reviewsLoaded, reviewsLoading, loadUserReviews]);
+
+  // Reset reviews when user changes
+  useEffect(() => {
+    setReviewsLoaded(false);
+    setReviews([]);
+    setReviewSummary(null);
+  }, [user?._id]);
+
+  // Connect stream to video element when camera is active
+  useEffect(() => {
+    if (stream && cameraActive) {
+      const video = document.getElementById('avatar-video') as HTMLVideoElement;
+      if (video) {
+        video.srcObject = stream;
+      }
+    }
+  }, [stream, cameraActive]);
+
+
+  const handleSignupToTalentLMS = async () => {
+    if (!user) return;
     
-    const userId = user._id || user.id || '';
-    setSyncingWithTalentLMS(true);
-    
+    setSigningUpToTalentLMS(true);
     try {
-      // Sincronizar contratista con TalentLMS
-      await coursesApi.syncContractorToTalentLMS(userId, false);
+      const userData = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        login: user.email.split('@')[0], // Use email prefix as login
+        password: `${user.firstName}${user.lastName}123!`, // Generate a default password
+        userType: 'Learner-Type' as const, // Use Learner-Type for all users as requested
+        language: 'es',
+        timezone: '(GMT -05:00) Eastern Time (US & Canada)',
+        restrictEmail: 'off',
+        customFields: {
+          custom_field_1: user.company?.name || 'N/A',
+          custom_field_2: String(user.role) || 'N/A'
+        }
+      };
       
-      // Sincronizar cursos completados
-      await coursesApi.syncContractorCompletions(userId);
-      
-      // Recargar progreso
-      await loadCourseProgress();
-      
+      const response = await coursesApi.signupTalentLMSUser(userData);
+      if (response.success) {
+        setSnackbar({
+          open: true,
+          message: 'Usuario registrado exitosamente en TalentLMS',
+          severity: 'success'
+        });
+        // Reload TalentLMS user info
+        await checkTalentLMSUser();
+      }
+    } catch (error: any) {
+      console.error('Error signing up to TalentLMS:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Error al registrar usuario en TalentLMS';
       setSnackbar({
         open: true,
-        message: 'Sincronización con TalentLMS completada',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error syncing with TalentLMS:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error al sincronizar con TalentLMS',
+        message: errorMessage,
         severity: 'error'
       });
     } finally {
-      setSyncingWithTalentLMS(false);
+      setSigningUpToTalentLMS(false);
     }
   };
 
@@ -960,6 +1367,62 @@ export const UserDetail: React.FC = () => {
     }
   };
 
+  const handleEnrollInCourse = async (courseId: string) => {
+    if (!user) return;
+    
+    try {
+      setSnackbar({
+        open: true,
+        message: 'Inscribiendo en el curso...',
+        severity: 'info'
+      });
+      
+      const userId = user._id || user.id || '';
+      const response = await coursesApi.enrollUserInTalentLMSCourses(userId, [courseId]);
+      
+      // Handle the new response format from enroll-user-simple
+      if (response.success) {
+        const { enrolled, alreadyEnrolled } = response.data;
+        
+        if (enrolled && enrolled.length > 0) {
+          setSnackbar({
+            open: true,
+            message: `Inscripción exitosa en ${enrolled.length} curso(s)`,
+            severity: 'success'
+          });
+        } else if (alreadyEnrolled && alreadyEnrolled.length > 0) {
+          setSnackbar({
+            open: true,
+            message: 'Ya estás inscrito en este curso',
+            severity: 'info'
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: response.message || 'Inscripción completada',
+            severity: 'success'
+          });
+        }
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.message || 'Error al inscribirse en el curso',
+          severity: 'error'
+        });
+      }
+      
+      // Recargar el progreso del curso
+      await loadCourseProgress();
+    } catch (error: any) {
+      console.error('Error enrolling in course:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error al inscribirse en el curso',
+        severity: 'error'
+      });
+    }
+  };
+
   const handleDownloadDocument = async (fileId: string, fileName: string) => {
     try {
       const token = localStorage.getItem('token');
@@ -1034,44 +1497,6 @@ export const UserDetail: React.FC = () => {
     }
   };
 
-  const handleSaveEvaluation = async () => {
-    if (!user) return;
-    
-    try {
-      const response = await contractorApi.addEvaluation(user._id, {
-        scores: evaluationScores,
-        comments: evaluationComments
-      });
-      
-      if (response.success) {
-        const average = (evaluationScores.safety + evaluationScores.quality + 
-                        evaluationScores.timeliness + evaluationScores.communication) / 4;
-        
-        setSnackbar({
-          open: true,
-          message: `Evaluación guardada. Promedio: ${average.toFixed(1)}%`,
-          severity: 'success'
-        });
-        setEvaluationDialogOpen(false);
-        // Resetear formulario
-        setEvaluationScores({
-          safety: 0,
-          quality: 0,
-          timeliness: 0,
-          communication: 0
-        });
-        setEvaluationComments('');
-        // Recargar datos
-        await loadContractorDataFromAPI(user._id);
-      }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Error al guardar evaluación',
-        severity: 'error'
-      });
-    }
-  };
 
   if (loading) {
     return <SkeletonLoader variant="cards" />;
@@ -1085,7 +1510,16 @@ export const UserDetail: React.FC = () => {
     );
   }
 
-  const tabLabels = ['Información General', 'Historial', 'Cursos', 'Documentos'];
+  let tabLabels = ['Información General'];
+  
+  // Add Company Verifications tab for safety staff and admins in second position
+  const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+  if (canViewCompanyVerifications) {
+    tabLabels.push('Verificaciones de Empresa');
+  }
+  
+  // Add the rest of the tabs
+  tabLabels.push('Cursos', 'Documentos', 'Historial');
   
   // Agregar tab "Verificarme" si el usuario tiene verificaciones pendientes
   // y es el usuario viendo su propio perfil
@@ -1093,9 +1527,9 @@ export const UserDetail: React.FC = () => {
     tabLabels.push('Verificarme');
   }
   
-  if (isContractor(user.role)) {
-    tabLabels.push('Verificación', 'Evaluaciones', 'Certificaciones', 'Términos');
-  }
+  // Note: These offsets were used for tab indexing but are no longer needed
+  // Keeping the logic documented for reference
+  
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, overflow: 'hidden' }}>
@@ -1119,12 +1553,20 @@ export const UserDetail: React.FC = () => {
               mb: isMobile ? 2 : 0 
             }}>
               <Avatar
+                key={`avatar-${avatarUpdateKey}`}
                 src={userAvatarUrl || undefined}
+                onClick={() => setAvatarDialogOpen(true)}
                 sx={{
                   width: { xs: 80, md: 100 },
                   height: { xs: 80, md: 100 },
                   bgcolor: 'primary.main',
-                  fontSize: { xs: '1.5rem', md: '2rem' }
+                  fontSize: { xs: '1.5rem', md: '2rem' },
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                    boxShadow: 3
+                  }
                 }}
               >
                 {!userAvatarUrl && `${user.firstName?.charAt(0)}${user.lastName?.charAt(0)}`}
@@ -1170,32 +1612,6 @@ export const UserDetail: React.FC = () => {
                     />
                   )}
                 </Box>
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: 2, 
-                  flexWrap: 'wrap',
-                  flexDirection: 'row',
-                  alignItems: 'flex-start'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <EmailIcon fontSize="small" color="action" />
-                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                      {user.email}
-                    </Typography>
-                  </Box>
-                  {user.profile?.phone && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <PhoneIcon fontSize="small" color="action" />
-                      <Typography variant="body2">{user.profile.phone}</Typography>
-                    </Box>
-                  )}
-                  {user.company && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <BusinessIcon fontSize="small" color="action" />
-                      <Typography variant="body2">{user.company.name}</Typography>
-                    </Box>
-                  )}
-                </Box>
               </>
             )}
             {isMobile && (
@@ -1216,6 +1632,58 @@ export const UserDetail: React.FC = () => {
                 )}
               </Box>
             )}
+          </Grid>
+          {/* Action buttons */}
+          <Grid size={{ xs: 12, md: 'auto' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 1, 
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: isMobile ? 'center' : 'flex-end',
+              mt: isMobile ? 2 : 0
+            }}>
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={handleEdit}
+                size={isMobile ? 'small' : 'medium'}
+              >
+                Editar
+              </Button>
+              {/* Show impersonate button for SUPER_ADMIN, SAFETY_STAFF, and CLIENT_SUPERVISOR */}
+              {hasRole && hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR]) && 
+               user && user._id !== currentUser?._id && (() => {
+                 // Apply role-based restrictions
+                 const currentRole = currentUser?.role;
+                 const targetRole = user.role;
+                 
+                 if (currentRole === UserRole.SUPER_ADMIN) {
+                   // SUPER_ADMIN can impersonate anyone except other SUPER_ADMINs
+                   return targetRole !== UserRole.SUPER_ADMIN;
+                 } else if (currentRole === UserRole.SAFETY_STAFF) {
+                   // SAFETY_STAFF can't impersonate SUPER_ADMIN or other SAFETY_STAFF
+                   return targetRole !== UserRole.SUPER_ADMIN && targetRole !== UserRole.SAFETY_STAFF;
+                 } else if (currentRole === UserRole.CLIENT_SUPERVISOR) {
+                   // CLIENT_SUPERVISOR can only impersonate users from same company with basic roles
+                   const allowedRoles = [UserRole.CLIENT_STAFF, UserRole.CONTRATISTA_ADMIN, 
+                                       UserRole.CONTRATISTA_SUBALTERNOS, UserRole.CONTRATISTA_HUERFANO,
+                                       UserRole.VALIDADORES_OPS];
+                   const sameCompany = user.company?._id === currentUser?.company?._id;
+                   return sameCompany && allowedRoles.includes(targetRole);
+                 }
+                 return false;
+               })() && (
+                <Button
+                  variant="outlined"
+                  startIcon={<LoginIcon />}
+                  onClick={handleImpersonate}
+                  disabled={impersonating}
+                  size={isMobile ? 'small' : 'medium'}
+                >
+                  {impersonating ? 'Impersonando...' : 'Impersonar'}
+                </Button>
+              )}
+            </Box>
           </Grid>
         </Grid>
       </Paper>
@@ -1306,7 +1774,56 @@ export const UserDetail: React.FC = () => {
                       />
                     </ListItem>
                   )}
-                  {/* Cédula will be shown in contractor section */}
+                  {user.cedula && (
+                    <ListItem>
+                      <ListItemIcon>
+                        <BadgeIcon />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Cédula"
+                        secondary={user.cedula}
+                      />
+                    </ListItem>
+                  )}
+                  {/* Verification Status based on verificationSummary */}
+                  {isContractor(user.role) && user.verificationSummary && (
+                    <ListItem>
+                      <ListItemIcon>
+                        <VerifiedIcon 
+                          color={
+                            user.verificationSummary.globalCompliance === 'compliant' ? "success" : 
+                            user.verificationSummary.globalCompliance === 'partial' ? "warning" : 
+                            "action"
+                          } 
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Estado de Verificación"
+                        secondary={
+                          <Box>
+                            <Chip
+                              size="small"
+                              label={
+                                user.verificationSummary.globalCompliance === 'compliant' ? "Conforme" : 
+                                user.verificationSummary.globalCompliance === 'partial' ? "Parcialmente Conforme" : 
+                                "No Conforme"
+                              }
+                              color={
+                                user.verificationSummary.globalCompliance === 'compliant' ? "success" : 
+                                user.verificationSummary.globalCompliance === 'partial' ? "warning" : 
+                                "error"
+                              }
+                            />
+                            {user.verificationSummary.details && user.verificationSummary.details.length > 0 && (
+                              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                {user.verificationSummary.details[0].verificationsCompleted} de {user.verificationSummary.details[0].verificationsTotal} verificaciones completadas
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  )}
                 </List>
               </CardContent>
             </Card>
@@ -1328,18 +1845,123 @@ export const UserDetail: React.FC = () => {
                       secondary={getRoleLabel(user.role)}
                     />
                   </ListItem>
-                  {user.company && (
+                  {/* Show primary workspace from company field (legacy) */}
+                  {user.company && !user.companies && (
                     <ListItem>
                       <ListItemIcon>
                         <BusinessIcon />
                       </ListItemIcon>
                       <ListItemText
-                        primary="Espacio de trabajo"
+                        primary="Espacios(s) de trabajo"
                         secondary={user.company.name}
                       />
                     </ListItem>
                   )}
-                  {/* Position will be shown in contractor section */}
+                  
+                  {/* Show all workspaces from companies array */}
+                  {user.companies && user.companies.length > 0 && (
+                    <ListItem>
+                      <ListItemIcon>
+                        <BusinessIcon />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={`Espacio${user.companies.length > 1 ? 's' : ''} de trabajo (${user.companies.length})`}
+                        secondary={
+                          <Box>
+                            {user.companies.map((company, index) => (
+                              <Box key={company.companyId} sx={{ mb: index < user.companies!.length - 1 ? 1 : 0 }}>
+                                <Typography variant="body2" component="span">
+                                  {company.companyName}
+                                  {company.isPrimary && (
+                                    <Chip
+                                      label="Principal"
+                                      size="small"
+                                      color="primary"
+                                      sx={{ ml: 1, height: 20 }}
+                                    />
+                                  )}
+                                  {!company.isActive && (
+                                    <Chip
+                                      label="Inactivo"
+                                      size="small"
+                                      color="error"
+                                      sx={{ ml: 1, height: 20 }}
+                                    />
+                                  )}
+                                </Typography>
+                                <Typography variant="caption" display="block" color="text.secondary">
+                                  {getRoleLabel(company.role)} • Desde {formatDate(company.startDate)}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  )}
+                  {/* Departments grouped by company */}
+                  {user.departments && user.departments.length > 0 && (
+                    <ListItem>
+                      <ListItemIcon>
+                        <AssignmentIcon />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={`Departamento${user.departments.length > 1 ? 's' : ''} (${user.departments.length})`}
+                        secondary={
+                          <Box>
+                            {(() => {
+                              // Group departments by company
+                              const departmentsByCompany = user.departments.reduce((acc, dept) => {
+                                const companyName = dept.company?.name || 'Sin empresa';
+                                if (!acc[companyName]) {
+                                  acc[companyName] = [];
+                                }
+                                acc[companyName].push(dept);
+                                return acc;
+                              }, {} as Record<string, typeof user.departments>);
+
+                              return Object.entries(departmentsByCompany).map(([companyName, depts], index) => (
+                                <Box key={companyName} sx={{ mb: index < Object.keys(departmentsByCompany).length - 1 ? 1 : 0 }}>
+                                  <Typography variant="caption" color="text.secondary" display="block" fontWeight="medium">
+                                    {companyName}:
+                                  </Typography>
+                                  <Box sx={{ ml: 1 }}>
+                                    {depts.map((dept, deptIndex) => (
+                                      <Typography key={dept._id} variant="body2" component="span">
+                                        {dept.name}
+                                        {dept.code && (
+                                          <Typography variant="caption" color="text.secondary" component="span">
+                                            {' '}({dept.code})
+                                          </Typography>
+                                        )}
+                                        {deptIndex < depts.length - 1 ? ', ' : ''}
+                                      </Typography>
+                                    ))}
+                                  </Box>
+                                </Box>
+                              ));
+                            })()}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  )}
+                  {/* Account Status */}
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color={user.isActive ? "success" : "error"} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Estado de la cuenta"
+                      secondary={
+                        <Chip
+                          size="small"
+                          label={user.isActive ? "Activa" : "Inactiva"}
+                          color={user.isActive ? "success" : "error"}
+                        />
+                      }
+                    />
+                  </ListItem>
                   <ListItem>
                     <ListItemIcon>
                       <AccessTimeIcon />
@@ -1353,10 +1975,113 @@ export const UserDetail: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Compliance Information Card - Only for Contractors */}
+          {isContractor(user.role) && user.verificationSummary && (
+            <Grid size={{ xs: 12 }}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Estado de Cumplimiento
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Box sx={{ textAlign: 'center', p: 2 }}>
+                        <Typography variant="h4" color="primary">
+                          {user.verificationSummary.totalCompanies}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Empresas Totales
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Box sx={{ textAlign: 'center', p: 2 }}>
+                        <Typography variant="h4" color="success.main">
+                          {user.verificationSummary.compliantCompanies}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Empresas Conformes
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Box sx={{ textAlign: 'center', p: 2 }}>
+                        <Typography variant="h4" color="warning.main">
+                          {user.verificationSummary.partialCompanies}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Cumplimiento Parcial
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Box sx={{ textAlign: 'center', p: 2 }}>
+                        <Typography variant="h4" color="error.main">
+                          {user.verificationSummary.nonCompliantCompanies}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          No Conformes
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                  
+                  {/* Global Compliance Status */}
+                  <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body1" fontWeight="medium">
+                      Estado Global:
+                    </Typography>
+                    <Chip
+                      icon={
+                        user.verificationSummary.globalCompliance === 'compliant' 
+                          ? <CheckCircleIcon /> 
+                          : user.verificationSummary.globalCompliance === 'partial' 
+                          ? <WarningIcon /> 
+                          : <CancelIcon />
+                      }
+                      label={
+                        user.verificationSummary.globalCompliance === 'compliant'
+                          ? 'Conforme'
+                          : user.verificationSummary.globalCompliance === 'partial'
+                          ? 'Parcialmente Conforme'
+                          : 'No Conforme'
+                      }
+                      color={
+                        user.verificationSummary.globalCompliance === 'compliant'
+                          ? 'success'
+                          : user.verificationSummary.globalCompliance === 'partial'
+                          ? 'warning'
+                          : 'error'
+                      }
+                    />
+                  </Box>
+                  
+                  {/* Terms acceptance status */}
+                  <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Chip
+                      size="small"
+                      icon={user.acceptedTerms ? <CheckCircleIcon /> : <CancelIcon />}
+                      label={user.acceptedTerms ? "Términos Aceptados" : "Términos Pendientes"}
+                      color={user.acceptedTerms ? "success" : "default"}
+                      variant="outlined"
+                    />
+                    <Chip
+                      size="small"
+                      icon={user.acceptedPrivacyPolicy ? <CheckCircleIcon /> : <CancelIcon />}
+                      label={user.acceptedPrivacyPolicy ? "Privacidad Aceptada" : "Privacidad Pendiente"}
+                      color={user.acceptedPrivacyPolicy ? "success" : "default"}
+                      variant="outlined"
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       </TabPanel>
 
-      <TabPanel value={tabValue} index={1}>
+      <TabPanel value={tabValue} index={canViewCompanyVerifications ? 4 : 3}>
         {/* Historial de Actividades */}
         <Box>
           <Box sx={{ 
@@ -1387,27 +2112,11 @@ export const UserDetail: React.FC = () => {
               </Button>
               <Button
                 size={isMobile ? 'small' : 'small'}
-                variant={historyType === 'permits' ? 'contained' : 'outlined'}
-                onClick={() => setHistoryType('permits')}
-                sx={{ flexGrow: isMobile ? 1 : 0, minWidth: isMobile ? 0 : 'auto' }}
-              >
-                {isMobile ? 'Permisos' : 'Permiso de Trabajo'}
-              </Button>
-              <Button
-                size={isMobile ? 'small' : 'small'}
                 variant={historyType === 'equipment' ? 'contained' : 'outlined'}
                 onClick={() => setHistoryType('equipment')}
                 sx={{ flexGrow: isMobile ? 1 : 0, minWidth: isMobile ? 0 : 'auto' }}
               >
                 Equipos
-              </Button>
-              <Button
-                size={isMobile ? 'small' : 'small'}
-                variant={historyType === 'tasks' ? 'contained' : 'outlined'}
-                onClick={() => setHistoryType('tasks')}
-                sx={{ flexGrow: isMobile ? 1 : 0, minWidth: isMobile ? 0 : 'auto' }}
-              >
-                Tareas
               </Button>
             </Box>
           </Box>
@@ -1599,156 +2308,482 @@ export const UserDetail: React.FC = () => {
         </Box>
       </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={canViewCompanyVerifications ? 2 : 1}>
         {/* Cursos */}
         <Grid container spacing={3}>
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <SchoolIcon color="primary" />
-                    Cursos y Capacitaciones
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    {talentLMSProgress && (
-                      <Chip 
-                        label={`${talentLMSProgress.inProgressCourses} cursos activos`} 
-                        color="primary" 
-                        size="small"
-                      />
-                    )}
-                    {isContractor(user.role) && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={handleSyncWithTalentLMS}
-                        disabled={syncingWithTalentLMS}
-                        startIcon={syncingWithTalentLMS ? <CircularProgress size={16} /> : <SyncIcon />}
-                      >
-                        {syncingWithTalentLMS ? 'Sincronizando...' : 'Sincronizar con TalentLMS'}
-                      </Button>
-                    )}
-                  </Box>
-                </Box>
 
-                {/* Resumen de cursos */}
                 {coursesLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                     <CircularProgress />
                   </Box>
-                ) : talentLMSProgress ? (
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
-                        <Typography variant="h4" color="success.main">
-                          {talentLMSProgress.completedCourses || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">Cursos Completados</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 2 }}>
-                        <Typography variant="h4" color="warning.main">
-                          {talentLMSProgress.inProgressCourses || 0}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">En Progreso</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
-                        <Typography variant="h4" color="info.main">
-                          {talentLMSProgress.overallProgress || 0}%
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">Tasa de Completación</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
                 ) : (
-                  <Alert severity="info" sx={{ mb: 3 }}>
-                    No hay datos de cursos disponibles. {isContractor(user.role) && 'Haz clic en "Sincronizar con TalentLMS" para cargar los datos.'}
-                  </Alert>
+                  <>
+                    {/* Resumen de cursos - Mostrar stats del usuario o de TalentLMS */}
+                    {(userCourses?.stats || talentLMSProgress) && (
+                      <Grid container spacing={2} sx={{ mb: 3 }}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
+                            <Typography variant="h4" color="success.main">
+                              {userCourses?.stats?.totalCompleted || talentLMSProgress?.completedCourses || 0}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">Cursos Completados</Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 2 }}>
+                            <Typography variant="h4" color="warning.main">
+                              {userCourses?.stats?.totalEnrolled || talentLMSProgress?.inProgressCourses || 0}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">En Progreso</Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                          <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
+                            <Typography variant="h4" color="info.main">
+                              {userCourses?.stats?.averageScore || talentLMSProgress?.overallProgress || 0}%
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {userCourses?.stats ? 'Puntaje Promedio' : 'Tasa de Completación'}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        {userCourses?.stats?.complianceStatus && (
+                          <Grid size={{ xs: 12 }}>
+                            <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                              <Chip 
+                                label={`Estado de Cumplimiento: ${userCourses.stats.complianceStatus}`}
+                                color={
+                                  userCourses.stats.complianceStatus === 'compliant' ? 'success' :
+                                  userCourses.stats.complianceStatus === 'partial' ? 'warning' : 'error'
+                                }
+                                size="medium"
+                              />
+                            </Box>
+                          </Grid>
+                        )}
+                      </Grid>
+                    )}
+
+                    {/* Tabs para Información General, Mis Cursos y Cursos Disponibles */}
+                    <Tabs value={courseTabValue} onChange={handleCourseTabChange} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+                      <Tab label="Información General" />
+                      <Tab label={`Cursos del usuario ${userCourses ? `(${(userCourses.initial?.length || 0) + (userCourses.additional?.length || 0) + (userCourses.enrollments?.length || 0)})` : ''}`} />
+                      <Tab label={`Cursos Disponibles ${availableCourses ? `(${availableCourses.length})` : ''}`} />
+                    </Tabs>
+                  </>
                 )}
 
-                {/* Lista de cursos */}
-                {talentLMSProgress && talentLMSProgress.courses && talentLMSProgress.courses.length > 0 && (
-                  <>
-                    <Typography variant="subtitle1" gutterBottom sx={{ mt: 3 }}>
-                      Cursos Recientes
-                    </Typography>
-                    
-                    <Stack spacing={2}>
-                      {talentLMSProgress.courses.map((course: any) => (
-                        <Card key={course.id} variant="outlined">
-                          <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="h6">
-                                  {course.name}
+                {/* Tab Panel 0: Información General */}
+                {courseTabValue === 0 && (
+                  <Box>
+                    {checkingTalentLMS ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                        <CircularProgress />
+                      </Box>
+                    ) : talentLMSUser ? (
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            Usuario TalentLMS
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">ID</Typography>
+                              <Typography variant="body1" gutterBottom>{talentLMSUser.id}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">Login</Typography>
+                              <Typography variant="body1" gutterBottom>{talentLMSUser.login}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">Email</Typography>
+                              <Typography variant="body1" gutterBottom>{talentLMSUser.email}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">Tipo de Usuario</Typography>
+                              <Typography variant="body1" gutterBottom>{talentLMSUser.user_type}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">Estado</Typography>
+                              <Chip 
+                                label={talentLMSUser.status === 'active' ? 'Activo' : 'Inactivo'} 
+                                color={talentLMSUser.status === 'active' ? 'success' : 'default'}
+                                size="small"
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                              <Typography variant="body2" color="text.secondary">Último Acceso</Typography>
+                              <Typography variant="body1" gutterBottom>
+                                {talentLMSUser.last_login ? formatDate(talentLMSUser.last_login) : 'Nunca'}
+                              </Typography>
+                            </Grid>
+                            {talentLMSUser.login_key && (
+                              <Grid size={12}>
+                                <Typography variant="body2" color="text.secondary">Login Key</Typography>
+                                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                  {talentLMSUser.login_key}
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                  ID: {course.id}
-                                </Typography>
-                                <Box sx={{ mt: 2 }}>
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                    <Typography variant="body2">Progreso</Typography>
-                                    <Typography variant="body2" fontWeight="medium">{course.completionPercentage}%</Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+                          
+                          {/* Courses enrolled */}
+                          {talentLMSUser.courses && talentLMSUser.courses.length > 0 && (
+                            <>
+                              <Divider sx={{ my: 3 }} />
+                              <Typography variant="h6" gutterBottom>
+                                Cursos Inscritos ({talentLMSUser.courses.length})
+                              </Typography>
+                              <Stack spacing={2}>
+                                {talentLMSUser.courses.map((course: any) => (
+                                  <Box key={course.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                      <Typography variant="body1">{course.name}</Typography>
+                                      <Typography variant="body2" color="text.secondary">
+                                        Inscrito: {formatDate(course.enrolled_on)}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                      <Chip 
+                                        label={`${course.completion_percentage}%`}
+                                        color={course.completion_percentage === 100 ? 'success' : 'primary'}
+                                        size="small"
+                                      />
+                                      {course.completed_on && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          Completado: {formatDate(course.completed_on)}
+                                        </Typography>
+                                      )}
+                                    </Box>
                                   </Box>
-                                  <LinearProgress 
-                                    variant="determinate" 
-                                    value={course.completionPercentage} 
-                                    sx={{ height: 8, borderRadius: 4 }}
-                                    color={course.status === 'completed' ? 'success' : 'primary'}
-                                  />
-                                </Box>
-                              </Box>
-                              <Box sx={{ ml: 2, textAlign: 'right' }}>
-                                <Chip 
-                                  label={
-                                    course.status === 'completed' ? 'Completado' : 
-                                    course.status === 'not_started' ? 'No iniciado' : 
-                                    'En Progreso'
-                                  } 
-                                  color={
-                                    course.status === 'completed' ? 'success' : 
-                                    course.status === 'not_started' ? 'default' : 
-                                    'warning'
-                                  } 
-                                  size="small"
-                                  sx={{ mb: 1 }}
-                                />
-                                <Typography variant="caption" display="block" color="text.secondary">
-                                  {course.enrollmentDate && `Inscrito: ${formatDate(course.enrollmentDate)}`}
-                                </Typography>
-                                {course.completionDate && (
-                                  <Typography variant="caption" display="block" color="text.secondary">
-                                    Completado: {formatDate(course.completionDate)}
-                                  </Typography>
-                                )}
-                                {course.status === 'completed' && course.certificateUrl && (
-                                  <Button
-                                    size="small"
-                                    startIcon={<DownloadIcon />}
-                                    sx={{ mt: 1 }}
-                                    href={course.certificateUrl}
-                                    target="_blank"
-                                  >
-                                    Certificado
-                                  </Button>
-                                )}
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Stack>
+                                ))}
+                              </Stack>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Alert severity="warning" action={
+                        <Button 
+                          color="inherit" 
+                          size="small"
+                          onClick={handleSignupToTalentLMS}
+                          disabled={signingUpToTalentLMS}
+                          startIcon={signingUpToTalentLMS && <CircularProgress size={16} />}
+                        >
+                          {signingUpToTalentLMS ? 'Registrando...' : 'Registrar en TalentLMS'}
+                        </Button>
+                      }>
+                        Este usuario no está registrado en TalentLMS. Regístralo para que pueda acceder a los cursos.
+                      </Alert>
+                    )}
+                  </Box>
+                )}
 
-                    {/* Botón para ver más */}
-                    <Box sx={{ mt: 3, textAlign: 'center' }}>
-                      <Button variant="outlined" startIcon={<VisibilityIcon />}>
-                        Ver Todos los Cursos
-                      </Button>
-                    </Box>
+                {/* Tab Panel 1: Mis Cursos */}
+                {courseTabValue === 1 && (
+                  <>
+                    {userCourses && (userCourses.initial?.length > 0 || userCourses.additional?.length > 0 || userCourses.enrollments?.length > 0) ? (
+                      <Stack spacing={3}>
+                        {/* Cursos Iniciales */}
+                        {userCourses.initial?.length > 0 && (
+                          <>
+                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <SchoolIcon color="primary" />
+                              Cursos Iniciales
+                            </Typography>
+                            <Stack spacing={2}>
+                              {userCourses.initial.map((course: any, index: number) => (
+                                <Card key={`initial-${index}`} variant="outlined">
+                                  <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight="medium">
+                                          {course}
+                                        </Typography>
+                                        <Chip 
+                                          label="Curso Inicial" 
+                                          color="primary" 
+                                          size="small"
+                                          sx={{ mt: 1 }}
+                                        />
+                                      </Box>
+                                    </Box>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+
+                        {/* Cursos Adicionales */}
+                        {userCourses.additional?.length > 0 && (
+                          <>
+                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 3 }}>
+                              <SchoolIcon color="secondary" />
+                              Cursos Adicionales
+                            </Typography>
+                            <Stack spacing={2}>
+                              {userCourses.additional.map((course: any, index: number) => (
+                                <Card key={`additional-${index}`} variant="outlined">
+                                  <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight="medium">
+                                          {course.name || course}
+                                        </Typography>
+                                        {course.expiryDate && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            Vence: {formatDate(course.expiryDate)}
+                                          </Typography>
+                                        )}
+                                        <Chip 
+                                          label="Curso Adicional" 
+                                          color="secondary" 
+                                          size="small"
+                                          sx={{ mt: 1 }}
+                                        />
+                                      </Box>
+                                    </Box>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+
+                        {/* Cursos Inscritos */}
+                        {userCourses.enrollments?.length > 0 && (
+                          <>
+                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 3 }}>
+                              <SchoolIcon color="info" />
+                              Cursos Inscritos
+                            </Typography>
+                            <Stack spacing={2}>
+                              {userCourses.enrollments.map((enrollment: any, index: number) => (
+                                <Card key={`enrollment-${index}`} variant="outlined">
+                                  <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight="medium">
+                                          {getCourseName(enrollment.talentLMSCourseId || enrollment.courseId) || `Curso ID: ${enrollment.courseId || enrollment.talentLMSCourseId || enrollment}`}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          ID: {enrollment.courseId} {enrollment.talentLMSCourseId && enrollment.talentLMSCourseId !== enrollment.courseId && `(TalentLMS: ${enrollment.talentLMSCourseId})`}
+                                        </Typography>
+                                        {enrollment.enrollmentDate && (
+                                          <Typography variant="body2" color="text.secondary">
+                                            Inscrito: {formatDate(enrollment.enrollmentDate)}
+                                          </Typography>
+                                        )}
+                                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                                          <Chip 
+                                            label="Inscrito" 
+                                            color="info" 
+                                            size="small"
+                                          />
+                                          {enrollment.progress !== undefined && (
+                                            <Chip 
+                                              label={`${enrollment.progress}% completado`}
+                                              color={enrollment.progress === 100 ? 'success' : 'default'}
+                                              size="small"
+                                            />
+                                          )}
+                                          {enrollment.status && (
+                                            <Chip 
+                                              label={enrollment.status === 'enrolled' ? 'Inscrito' : enrollment.status}
+                                              color="info"
+                                              size="small"
+                                              variant="outlined"
+                                            />
+                                          )}
+                                        </Box>
+                                      </Box>
+                                    </Box>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+
+                        {/* Cursos en TalentLMS */}
+                        {talentLMSProgress && talentLMSProgress.courses && talentLMSProgress.courses.length > 0 && (
+                          <>
+                            <Divider sx={{ my: 3 }} />
+                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <SchoolIcon color="primary" />
+                              Progreso en TalentLMS
+                            </Typography>
+                            <Stack spacing={2}>
+                              {talentLMSProgress.courses.map((course: any) => (
+                                <Card key={course.id} variant="outlined">
+                                  <CardContent>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography variant="h6">
+                                          {course.name}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                          ID: {course.id}
+                                        </Typography>
+                                        <Box sx={{ mt: 2 }}>
+                                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography variant="body2">Progreso</Typography>
+                                            <Typography variant="body2" fontWeight="medium">{course.completionPercentage}%</Typography>
+                                          </Box>
+                                          <LinearProgress 
+                                            variant="determinate" 
+                                            value={course.completionPercentage} 
+                                            sx={{ height: 8, borderRadius: 4 }}
+                                            color={course.status === 'completed' ? 'success' : 'primary'}
+                                          />
+                                        </Box>
+                                      </Box>
+                                      <Box sx={{ ml: 2, textAlign: 'right' }}>
+                                        <Chip 
+                                          label={
+                                            course.status === 'completed' ? 'Completado' : 
+                                            course.status === 'not_started' ? 'No iniciado' : 
+                                            'En Progreso'
+                                          } 
+                                          color={
+                                            course.status === 'completed' ? 'success' : 
+                                            course.status === 'not_started' ? 'default' : 
+                                            'warning'
+                                          } 
+                                          size="small"
+                                          sx={{ mb: 1 }}
+                                        />
+                                        <Typography variant="caption" display="block" color="text.secondary">
+                                          {course.enrollmentDate && `Inscrito: ${formatDate(course.enrollmentDate)}`}
+                                        </Typography>
+                                        {course.completionDate && (
+                                          <Typography variant="caption" display="block" color="text.secondary">
+                                            Completado: {formatDate(course.completionDate)}
+                                          </Typography>
+                                        )}
+                                        {course.status === 'completed' && course.certificateUrl && (
+                                          <Button
+                                            size="small"
+                                            startIcon={<DownloadIcon />}
+                                            sx={{ mt: 1 }}
+                                            href={course.certificateUrl}
+                                            target="_blank"
+                                          >
+                                            Certificado
+                                          </Button>
+                                        )}
+                                      </Box>
+                                    </Box>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+                      </Stack>
+                    ) : (
+                      <Alert severity="info">
+                        {coursesLoading ? 'Cargando cursos...' : 'No hay cursos asignados a este usuario.'}
+                      </Alert>
+                    )}
+                  </>
+                )}
+
+                {/* Tab Panel 2: Cursos Disponibles */}
+                {courseTabValue === 2 && (
+                  <>
+                    {availableCourses && availableCourses.length > 0 ? (
+                      <Grid container spacing={2}>
+                        {availableCourses.map((course: any) => (
+                          <Grid size={{ xs: 12, md: 6 }} key={course.id}>
+                            <Card variant="outlined">
+                              <CardContent>
+                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                  {/* Avatar del curso */}
+                                  <Avatar
+                                    src={course.avatar || course.big_avatar}
+                                    sx={{ width: 60, height: 60 }}
+                                  >
+                                    <SchoolIcon />
+                                  </Avatar>
+                                  
+                                  {/* Información del curso */}
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant="subtitle1" fontWeight="medium">
+                                      {course.name}
+                                    </Typography>
+                                    
+                                    {course.description && (
+                                      <Typography 
+                                        variant="body2" 
+                                        color="text.secondary"
+                                        sx={{ 
+                                          mt: 0.5,
+                                          display: '-webkit-box',
+                                          WebkitLineClamp: 2,
+                                          WebkitBoxOrient: 'vertical',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis'
+                                        }}
+                                        dangerouslySetInnerHTML={{ __html: course.description }}
+                                      />
+                                    )}
+                                    
+                                    <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
+                                      {course.certification && (
+                                        <Chip
+                                          icon={<CertificationIcon />}
+                                          label={`Certificado: ${course.certification_duration || 'N/A'}`}
+                                          size="small"
+                                          color="success"
+                                        />
+                                      )}
+                                      
+                                      {course.time_limit && course.time_limit !== "0" && (
+                                        <Chip
+                                          icon={<AccessTimeIcon />}
+                                          label={`Límite: ${course.time_limit} horas`}
+                                          size="small"
+                                        />
+                                      )}
+                                      
+                                      <Chip
+                                        label={course.status === 'active' ? 'Activo' : 'Inactivo'}
+                                        size="small"
+                                        color={course.status === 'active' ? 'primary' : 'default'}
+                                      />
+                                    </Box>
+                                  </Box>
+                                  
+                                  {/* Acción */}
+                                  {course.status === 'active' && (
+                                    <Box>
+                                      <Button
+                                        variant="contained"
+                                        size="small"
+                                        startIcon={<AddIcon />}
+                                        onClick={() => handleEnrollInCourse(course.id)}
+                                      >
+                                        Inscribirse
+                                      </Button>
+                                    </Box>
+                                  )}
+                                </Box>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    ) : (
+                      <Alert severity="info">
+                        No hay cursos disponibles en este momento.
+                      </Alert>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -1757,7 +2792,7 @@ export const UserDetail: React.FC = () => {
         </Grid>
       </TabPanel>
 
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={canViewCompanyVerifications ? 3 : 2}>
         {/* Documentos */}
         <Grid container spacing={3}>
           <Grid size={12}>
@@ -1908,465 +2943,137 @@ export const UserDetail: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Certificaciones Section - Only for Contractors */}
+          {isContractor(user.role) && (
+            <Grid size={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6">
+                      Certificaciones Especiales
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => setCertificationDialogOpen(true)}
+                      size="small"
+                    >
+                      Agregar Certificación
+                    </Button>
+                  </Box>
+
+                  {certifications.length === 0 ? (
+                    <Alert severity="info">
+                      No hay certificaciones registradas
+                    </Alert>
+                  ) : (
+                    <Grid container spacing={2}>
+                      {certifications.map((cert) => (
+                        <Grid size={{ xs: 12, md: 6 }} key={cert.id}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <CertificationIcon color="primary" />
+                                  <Typography variant="h6">
+                                    {cert.name}
+                                  </Typography>
+                                </Box>
+                                {cert.verified && (
+                                  <Chip
+                                    icon={<VerifiedIcon />}
+                                    label="Verificado"
+                                    color="success"
+                                    size="small"
+                                  />
+                                )}
+                              </Box>
+
+                              <Grid container spacing={1}>
+                                <Grid size={12}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Emitido por: <strong>{cert.issuedBy}</strong>
+                                  </Typography>
+                                </Grid>
+                                <Grid size={12}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Número: <strong>{cert.certificateNumber}</strong>
+                                  </Typography>
+                                </Grid>
+                                <Grid size={6}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Emisión: {formatDate(cert.issueDate)}
+                                  </Typography>
+                                </Grid>
+                                <Grid size={6}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    Vence: {formatDate(cert.expiryDate)}
+                                  </Typography>
+                                </Grid>
+                              </Grid>
+
+                              {cert.verified && cert.verifiedBy && (
+                                <Box sx={{ mt: 2, p: 1, bgcolor: 'success.50', borderRadius: 1 }}>
+                                  <Typography variant="caption" color="success.dark">
+                                    Verificado por {cert.verifiedBy} el {formatDate(cert.verifiedAt!)}
+                                  </Typography>
+                                </Box>
+                              )}
+
+                              <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                {cert.documentUrl && (
+                                  <Button
+                                    size="small"
+                                    startIcon={<VisibilityIcon />}
+                                    variant="outlined"
+                                  >
+                                    Ver
+                                  </Button>
+                                )}
+                                {!cert.verified && canEditUser() && (
+                                  <Button
+                                    size="small"
+                                    startIcon={<VerifiedIcon />}
+                                    variant="outlined"
+                                    color="success"
+                                  >
+                                    Verificar
+                                  </Button>
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       </TabPanel>
 
       {/* Tab Verificarme - Solo visible para el usuario viendo su propio perfil */}
       {userHasPendingVerifications && currentUser && user && currentUser._id === user._id && (
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={canViewCompanyVerifications ? 5 : 4}>
           <UserVerificationsPanel userId={user._id} />
         </TabPanel>
       )}
 
-      {isContractor(user.role) && (
-        <>
-          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 5 : 4}>
-            {/* Verificación */}
-            <Grid container spacing={3}>
-              <Grid size={12}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="h6">
-                          Estado de Verificación
-                        </Typography>
-                        {verificationInfo && (
-                          <Chip
-                            icon={getVerificationStatusInfo(verificationInfo.status).icon}
-                            label={getVerificationStatusInfo(verificationInfo.status).label}
-                            color={getVerificationStatusInfo(verificationInfo.status).color}
-                            size="medium"
-                          />
-                        )}
-                      </Box>
-                      {canEditUser() && !isMobile && (
-                        <Button
-                          variant="contained"
-                          startIcon={<VerifiedIcon />}
-                          onClick={() => setVerificationDialogOpen(true)}
-                          size="small"
-                        >
-                          Verificar
-                        </Button>
-                      )}
-                    </Box>
-
-                    {verificationInfo?.verifiedBy && (
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Verificado por: <strong>{verificationInfo.verifiedBy}</strong>
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Fecha: {formatDate(verificationInfo.verifiedAt!)}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {verificationInfo?.rejectionReason && (
-                      <Alert severity="error" sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2">Motivo de rechazo:</Typography>
-                        {verificationInfo.rejectionReason}
-                      </Alert>
-                    )}
-
-                    <Typography variant="subtitle1" gutterBottom>
-                      Documentos de Verificación
-                    </Typography>
-                    {isMobile ? (
-                      // Mobile view - Cards
-                      <Stack spacing={2}>
-                        {verificationInfo?.documents.map((doc, index) => (
-                          <Card key={index} variant="outlined">
-                            <CardContent sx={{ pb: 2, '&:last-child': { pb: 2 } }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                  {doc.name}
-                                </Typography>
-                                <Chip
-                                  label={doc.status === 'approved' ? 'Aprobado' : doc.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                                  color={doc.status === 'approved' ? 'success' : doc.status === 'rejected' ? 'error' : 'warning'}
-                                  size="small"
-                                />
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                                Cargado: {formatDate(doc.uploadedAt)}
-                              </Typography>
-                              <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<VisibilityIcon />}
-                                  fullWidth
-                                >
-                                  Ver
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<DownloadIcon />}
-                                  fullWidth
-                                >
-                                  Descargar
-                                </Button>
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </Stack>
-                    ) : (
-                      // Desktop view - Table
-                      <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Documento</TableCell>
-                              <TableCell>Estado</TableCell>
-                              <TableCell>Fecha de carga</TableCell>
-                              <TableCell align="center">Acciones</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {verificationInfo?.documents.map((doc, index) => (
-                              <TableRow key={index}>
-                                <TableCell>{doc.name}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={doc.status === 'approved' ? 'Aprobado' : doc.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                                    color={doc.status === 'approved' ? 'success' : doc.status === 'rejected' ? 'error' : 'warning'}
-                                    size="small"
-                                  />
-                                </TableCell>
-                                <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
-                                <TableCell align="center">
-                                  <Tooltip title="Ver documento">
-                                    <IconButton size="small" color="primary">
-                                      <VisibilityIcon />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Descargar">
-                                    <IconButton size="small">
-                                      <DownloadIcon />
-                                    </IconButton>
-                                  </Tooltip>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 6 : 5}>
-            {/* Evaluaciones */}
-            <Grid container spacing={3}>
-              <Grid size={12}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                      <Typography variant="h6">
-                        Historial de Evaluaciones
-                      </Typography>
-                      {canEditUser() && (
-                        <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setEvaluationDialogOpen(true)}
-                          size="small"
-                        >
-                          Nueva Evaluación
-                        </Button>
-                      )}
-                    </Box>
-
-                    {evaluations.length === 0 ? (
-                      <Alert severity="info">
-                        No hay evaluaciones registradas
-                      </Alert>
-                    ) : (
-                      <Grid container spacing={2}>
-                        {evaluations.map((evaluation) => (
-                          <Grid size={{ xs: 12, md: 6 }} key={evaluation.id}>
-                            <Card variant="outlined">
-                              <CardContent>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                  <Box>
-                                    <Typography variant="subtitle2" color="text.secondary">
-                                      Evaluado por
-                                    </Typography>
-                                    <Typography variant="body1">
-                                      {evaluation.evaluatedBy}
-                                    </Typography>
-                                  </Box>
-                                  <Box sx={{ textAlign: 'right' }}>
-                                    <Typography variant="h4" color={getScoreColor(evaluation.average)}>
-                                      {evaluation.average}%
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Promedio
-                                    </Typography>
-                                  </Box>
-                                </Box>
-
-                                <Typography variant="caption" color="text.secondary">
-                                  {formatDate(evaluation.evaluatedAt)}
-                                </Typography>
-
-                                <Box sx={{ mt: 2 }}>
-                                  <Grid container spacing={1}>
-                                    <Grid size={6}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <SecurityIcon fontSize="small" color="primary" />
-                                        <Typography variant="body2">
-                                          Seguridad: {evaluation.scores.safety}%
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                    <Grid size={6}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <CheckCircleIcon fontSize="small" color="primary" />
-                                        <Typography variant="body2">
-                                          Calidad: {evaluation.scores.quality}%
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                    <Grid size={6}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <AccessTimeIcon fontSize="small" color="primary" />
-                                        <Typography variant="body2">
-                                          Puntualidad: {evaluation.scores.timeliness}%
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                    <Grid size={6}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <TeamIcon fontSize="small" color="primary" />
-                                        <Typography variant="body2">
-                                          Comunicación: {evaluation.scores.communication}%
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                  </Grid>
-                                </Box>
-
-                                {evaluation.comments && (
-                                  <Box sx={{ mt: 2, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Comentarios:
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {evaluation.comments}
-                                    </Typography>
-                                  </Box>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 7 : 6}>
-            {/* Certificaciones */}
-            <Grid container spacing={3}>
-              <Grid size={12}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                      <Typography variant="h6">
-                        Certificaciones Especiales
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setCertificationDialogOpen(true)}
-                        size="small"
-                      >
-                        Agregar Certificación
-                      </Button>
-                    </Box>
-
-                    {certifications.length === 0 ? (
-                      <Alert severity="info">
-                        No hay certificaciones registradas
-                      </Alert>
-                    ) : (
-                      <Grid container spacing={2}>
-                        {certifications.map((cert) => (
-                          <Grid size={{ xs: 12, md: 6 }} key={cert.id}>
-                            <Card variant="outlined">
-                              <CardContent>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CertificationIcon color="primary" />
-                                    <Typography variant="h6">
-                                      {cert.name}
-                                    </Typography>
-                                  </Box>
-                                  {cert.verified && (
-                                    <Chip
-                                      icon={<VerifiedIcon />}
-                                      label="Verificado"
-                                      color="success"
-                                      size="small"
-                                    />
-                                  )}
-                                </Box>
-
-                                <Grid container spacing={1}>
-                                  <Grid size={12}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      Emitido por: <strong>{cert.issuedBy}</strong>
-                                    </Typography>
-                                  </Grid>
-                                  <Grid size={12}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      Número: <strong>{cert.certificateNumber}</strong>
-                                    </Typography>
-                                  </Grid>
-                                  <Grid size={6}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      Emisión: {formatDate(cert.issueDate)}
-                                    </Typography>
-                                  </Grid>
-                                  <Grid size={6}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      Vence: {formatDate(cert.expiryDate)}
-                                    </Typography>
-                                  </Grid>
-                                </Grid>
-
-                                {cert.verified && cert.verifiedBy && (
-                                  <Box sx={{ mt: 2, p: 1, bgcolor: 'success.50', borderRadius: 1 }}>
-                                    <Typography variant="caption" color="success.dark">
-                                      Verificado por {cert.verifiedBy} el {formatDate(cert.verifiedAt!)}
-                                    </Typography>
-                                  </Box>
-                                )}
-
-                                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                                  {cert.documentUrl && (
-                                    <Button
-                                      size="small"
-                                      startIcon={<VisibilityIcon />}
-                                      variant="outlined"
-                                    >
-                                      Ver
-                                    </Button>
-                                  )}
-                                  {!cert.verified && canEditUser() && (
-                                    <Button
-                                      size="small"
-                                      startIcon={<VerifiedIcon />}
-                                      variant="outlined"
-                                      color="success"
-                                    >
-                                      Verificar
-                                    </Button>
-                                  )}
-                                </Box>
-                              </CardContent>
-                            </Card>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={userHasPendingVerifications && currentUser && user && currentUser._id === user._id ? 8 : 7}>
-            {/* Términos y Condiciones */}
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <GavelIcon color="primary" />
-                      <Typography variant="h6">
-                        Términos y Condiciones
-                      </Typography>
-                    </Box>
-                    
-                    {termsAcceptance?.termsAndConditions.accepted ? (
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <CheckCircleIcon color="success" />
-                          <Typography variant="body1" color="success.main">
-                            Aceptados
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Versión: {termsAcceptance.termsAndConditions.version}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Fecha: {formatDate(termsAcceptance.termsAndConditions.acceptedAt!)}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          IP: {termsAcceptance.termsAndConditions.ipAddress}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Alert severity="warning">
-                        No ha aceptado los términos y condiciones
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <SecurityIcon color="primary" />
-                      <Typography variant="h6">
-                        Política de Privacidad
-                      </Typography>
-                    </Box>
-                    
-                    {termsAcceptance?.privacyPolicy.accepted ? (
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <CheckCircleIcon color="success" />
-                          <Typography variant="body1" color="success.main">
-                            Aceptada
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Versión: {termsAcceptance.privacyPolicy.version}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Fecha: {formatDate(termsAcceptance.privacyPolicy.acceptedAt!)}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          IP: {termsAcceptance.privacyPolicy.ipAddress}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Alert severity="warning">
-                        No ha aceptado la política de privacidad
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </TabPanel>
-        </>
+      {/* Tab Verificaciones de Empresa - Solo visible para safety staff y admins */}
+      {canViewCompanyVerifications && (
+        <TabPanel value={tabValue} index={1}>
+          <UserCompanyVerificationsManager 
+            userId={user._id || user.id || ''} 
+            onRefresh={() => {
+              // Refresh callback if needed
+            }}
+          />
+        </TabPanel>
       )}
+
 
       {/* Diálogo de Verificación */}
       <Dialog
@@ -2424,144 +3131,30 @@ export const UserDetail: React.FC = () => {
       </Dialog>
 
       {/* Diálogo de Evaluación */}
-      <Dialog
-        open={evaluationDialogOpen}
-        onClose={() => setEvaluationDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AssessmentIcon color="primary" />
-            Nueva Evaluación
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Seguridad
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={evaluationScores.safety}
-                    onChange={(e) => setEvaluationScores(prev => ({
-                      ...prev,
-                      safety: Math.min(100, Math.max(0, parseInt(e.target.value) || 0))
-                    }))}
-                    slotProps={{
-                      input: {
-                        endAdornment: <InputAdornment position="end">%</InputAdornment>
-                      },
-                      htmlInput: { min: 0, max: 100 }
-                    }}
-                  />
-                </Box>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Calidad
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={evaluationScores.quality}
-                    onChange={(e) => setEvaluationScores(prev => ({
-                      ...prev,
-                      quality: Math.min(100, Math.max(0, parseInt(e.target.value) || 0))
-                    }))}
-                    slotProps={{
-                      input: {
-                        endAdornment: <InputAdornment position="end">%</InputAdornment>
-                      },
-                      htmlInput: { min: 0, max: 100 }
-                    }}
-                  />
-                </Box>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Puntualidad
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={evaluationScores.timeliness}
-                    onChange={(e) => setEvaluationScores(prev => ({
-                      ...prev,
-                      timeliness: Math.min(100, Math.max(0, parseInt(e.target.value) || 0))
-                    }))}
-                    slotProps={{
-                      input: {
-                        endAdornment: <InputAdornment position="end">%</InputAdornment>
-                      },
-                      htmlInput: { min: 0, max: 100 }
-                    }}
-                  />
-                </Box>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Comunicación
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={evaluationScores.communication}
-                    onChange={(e) => setEvaluationScores(prev => ({
-                      ...prev,
-                      communication: Math.min(100, Math.max(0, parseInt(e.target.value) || 0))
-                    }))}
-                    slotProps={{
-                      input: {
-                        endAdornment: <InputAdornment position="end">%</InputAdornment>
-                      },
-                      htmlInput: { min: 0, max: 100 }
-                    }}
-                  />
-                </Box>
-              </Grid>
-
-              <Grid size={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Comentarios (opcional)"
-                  value={evaluationComments}
-                  onChange={(e) => setEvaluationComments(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'primary.50', borderRadius: 1, textAlign: 'center' }}>
-              <Typography variant="h6">
-                Promedio: {Math.round(
-                  (evaluationScores.safety + evaluationScores.quality + 
-                   evaluationScores.timeliness + evaluationScores.communication) / 4
-                )}%
-              </Typography>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEvaluationDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSaveEvaluation} variant="contained">
-            Guardar Evaluación
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* <ReviewForm
+        open={reviewDialogOpen}
+        onClose={() => setReviewDialogOpen(false)}
+        contractorId={user._id || user.id || ''}
+        contractorName={`${user.firstName} ${user.lastName}`}
+        onSubmit={async (data: any) => {
+          try {
+            await reviewsApi.createReview(data as CreateReviewInput);
+            await loadUserReviews();
+            setReviewDialogOpen(false);
+            setSnackbar({
+              open: true,
+              message: 'Evaluación creada exitosamente',
+              severity: 'success'
+            });
+          } catch (error) {
+            setSnackbar({
+              open: true,
+              message: 'Error al crear la evaluación',
+              severity: 'error'
+            });
+          }
+        }}
+      /> */}
 
       {/* Snackbar */}
       {/* Certification Dialog */}
@@ -3058,6 +3651,193 @@ export const UserDetail: React.FC = () => {
             Eliminar
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de Avatar */}
+      <Dialog
+        open={avatarDialogOpen}
+        onClose={handleAvatarDialogClose}
+        maxWidth={fullscreenAvatar ? false : "sm"}
+        fullWidth
+        fullScreen={fullscreenAvatar}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6">
+              Foto de Perfil
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton 
+                onClick={() => setFullscreenAvatar(!fullscreenAvatar)} 
+                size="small"
+                title={fullscreenAvatar ? "Salir de pantalla completa" : "Ver en pantalla completa"}
+              >
+                {fullscreenAvatar ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
+              <IconButton onClick={handleAvatarDialogClose} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          ...(fullscreenAvatar && {
+            justifyContent: 'center',
+            bgcolor: 'background.default'
+          })
+        }}>
+          <Box sx={{ textAlign: 'center', width: '100%' }}>
+            {/* Mostrar cámara si está activa */}
+            {cameraActive ? (
+              <Box sx={{ position: 'relative', mb: 3 }}>
+                <video
+                  id="avatar-video"
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: '100%',
+                    maxWidth: 400,
+                    height: 'auto',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    aspectRatio: '1',
+                    transform: 'scaleX(-1)' // Espejo para selfie
+                  }}
+                />
+                <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+                  <Button
+                    variant="contained"
+                    onClick={capturePhoto}
+                    startIcon={<CameraIcon />}
+                    size="large"
+                  >
+                    Capturar Foto
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={stopCamera}
+                    color="error"
+                  >
+                    Cancelar
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              /* Mostrar imagen actual o preview */
+              <Avatar
+                src={avatarPreviewUrl || userAvatarUrl || undefined}
+                sx={{
+                  width: fullscreenAvatar 
+                    ? { xs: '90vmin', sm: '85vmin', md: '80vmin' }
+                    : { xs: 250, sm: 300, md: 350 },
+                  height: fullscreenAvatar 
+                    ? { xs: '90vmin', sm: '85vmin', md: '80vmin' }
+                    : { xs: 250, sm: 300, md: 350 },
+                  mx: 'auto',
+                  mb: 3,
+                  bgcolor: 'primary.main',
+                  fontSize: fullscreenAvatar ? '8rem' : '4rem',
+                  cursor: fullscreenAvatar ? 'zoom-out' : 'zoom-in'
+                }}
+                onClick={() => setFullscreenAvatar(!fullscreenAvatar)}
+              >
+                {!avatarPreviewUrl && !userAvatarUrl && 
+                  `${user.firstName?.charAt(0)}${user.lastName?.charAt(0)}`
+                }
+              </Avatar>
+            )}
+
+            {/* Solo mostrar opciones de subida si el usuario puede editar y no está en pantalla completa ni la cámara activa */}
+            {canEditUser() && !fullscreenAvatar && !cameraActive && (
+              <>
+                {!selectedAvatarFile ? (
+                  <Box>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                      {/* Input para seleccionar archivo */}
+                      <input
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        style={{ display: 'none' }}
+                        id="avatar-file-input"
+                        type="file"
+                        onChange={handleAvatarFileSelect}
+                      />
+                      
+                      {/* Input para cámara */}
+                      <input
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        capture="user"
+                        style={{ display: 'none' }}
+                        id="avatar-camera-input"
+                        type="file"
+                        onChange={handleAvatarFileSelect}
+                      />
+                      
+                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {/* Botón para seleccionar de galería */}
+                        <label htmlFor="avatar-file-input">
+                          <Button
+                            variant="contained"
+                            component="span"
+                            startIcon={<PhotoLibraryIcon />}
+                            sx={{ minWidth: 180 }}
+                          >
+                            Seleccionar Imagen
+                          </Button>
+                        </label>
+                        
+                        {/* Botón para tomar foto - solo mostrar en dispositivos móviles o con cámara */}
+                        {(isMobile || 'mediaDevices' in navigator) && (
+                          <Button
+                            variant="contained"
+                            startIcon={<CameraIcon />}
+                            color="secondary"
+                            sx={{ minWidth: 180 }}
+                            onClick={startCamera}
+                          >
+                            Tomar Foto
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                    
+                    <Typography variant="caption" display="block" sx={{ mt: 2, textAlign: 'center' }}>
+                      Formatos permitidos: JPG, PNG, WEBP (máx. 5MB)
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      {selectedAvatarFile.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setSelectedAvatarFile(null);
+                          setAvatarPreviewUrl(null);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={handleAvatarUpload}
+                        disabled={uploadingAvatar}
+                        startIcon={uploadingAvatar ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+                      >
+                        {uploadingAvatar ? 'Subiendo...' : 'Actualizar Imagen'}
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        </DialogContent>
       </Dialog>
 
       <Snackbar

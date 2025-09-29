@@ -12,14 +12,13 @@ import {
   CircularProgress,
   Chip,
   IconButton,
-  LinearProgress,
   useTheme,
   useMediaQuery
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  CloudUpload as CloudUploadIcon,
   CheckCircle as CheckCircleIcon,
+  CloudUpload as CloudUploadIcon,
   AttachFile as AttachFileIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
@@ -27,8 +26,8 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { es } from 'date-fns/locale';
-import { format } from 'date-fns';
 import { userVerificationsApi, VerificationDetail, SubmitVerificationData } from '../../services/userVerificationsApi';
+import { fileService } from '../../services/fileService';
 
 interface VerificationSubmitDialogProps {
   open: boolean;
@@ -52,10 +51,10 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentoId, setDocumentoId] = useState<string>('');
   
   const [formData, setFormData] = useState<SubmitVerificationData>({
     documentUrl: verification.documentUrl || '',
@@ -63,8 +62,6 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
     expiryDate: verification.expiryDate || '',
     notes: ''
   });
-  
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -87,46 +84,38 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
     }
   };
 
-  const handleUploadFile = async () => {
-    if (!selectedFile) return;
-    
-    try {
-      setUploading(true);
-      setUploadProgress(0);
-      setError(null);
-      
-      // Simulate progress (in real implementation, use XMLHttpRequest or axios with progress)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-      
-      const result = await userVerificationsApi.uploadVerificationDocument(selectedFile);
-      
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-      
-      setFormData(prev => ({ ...prev, documentUrl: result.url }));
-      setSelectedFile(null);
-      setUploading(false);
-      
-      // Reset progress after a delay
-      setTimeout(() => setUploadProgress(0), 1000);
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
-      setError(error.response?.data?.message || 'Error al subir el archivo');
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
-
   const handleSubmit = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      let fileId = documentoId;
+      
+      // If there's a selected file but no document ID, upload the file first
+      if (selectedFile && !fileId) {
+        try {
+          console.log('Uploading file:', selectedFile.name);
+          const uploadResponse = await fileService.uploadFile(selectedFile);
+          console.log('Upload response:', uploadResponse);
+          
+          if (!uploadResponse.success) {
+            throw new Error(uploadResponse.message || 'Error al subir el archivo');
+          }
+          
+          fileId = uploadResponse.fileId;
+          setDocumentoId(fileId);
+          console.log('File uploaded successfully, ID:', fileId);
+        } catch (uploadError: any) {
+          console.error('Error uploading file:', uploadError);
+          setError(uploadError.message || 'Error al subir el archivo');
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Validate required fields
-      if (!formData.documentUrl) {
-        setError('Debe subir un documento');
+      if (!fileId) {
+        setError('Debe seleccionar un documento');
         setLoading(false);
         return;
       }
@@ -137,10 +126,24 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
         return;
       }
       
+      // Build submit data with documentoId instead of documentUrl
+      const submitData: any = {
+        documentoId: fileId,
+        certificateNumber: formData.certificateNumber,
+        expiryDate: formData.expiryDate,
+        notes: formData.notes
+      };
+      
+      console.log('Submitting verification:', {
+        companyId,
+        verificationId: verification.id,
+        submitData
+      });
+      
       await userVerificationsApi.submitVerification(
         companyId,
         verification.id,
-        formData
+        submitData
       );
       
       setSuccess(true);
@@ -150,7 +153,7 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
       }, 1500);
     } catch (error: any) {
       console.error('Error submitting verification:', error);
-      setError(error.response?.data?.message || 'Error al enviar la verificación');
+      setError(error.response?.data?.message || error.message || 'Error al enviar la verificación');
     } finally {
       setLoading(false);
     }
@@ -244,7 +247,7 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
             Documento *
           </Typography>
           
-          {formData.documentUrl ? (
+          {documentoId ? (
             <Box sx={{ 
               p: 2, 
               border: '1px solid',
@@ -261,21 +264,16 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
                   Documento cargado
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  onClick={() => window.open(formData.documentUrl, '_blank')}
-                >
-                  Ver
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={() => setFormData(prev => ({ ...prev, documentUrl: '' }))}
-                >
-                  Cambiar
-                </Button>
-              </Box>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => {
+                  setDocumentoId('');
+                  setSelectedFile(null);
+                }}
+              >
+                Cambiar
+              </Button>
             </Box>
           ) : (
             <Box>
@@ -292,14 +290,15 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
                   <Box sx={{ 
                     p: 2, 
                     border: '1px dashed',
-                    borderColor: 'primary.main',
+                    borderColor: 'success.main',
                     borderRadius: 1,
+                    bgcolor: 'success.light',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <AttachFileIcon color="primary" />
+                      <AttachFileIcon color="success" />
                       <Typography variant="body2">
                         {selectedFile.name}
                       </Typography>
@@ -310,26 +309,10 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
                     <IconButton 
                       size="small" 
                       onClick={() => setSelectedFile(null)}
-                      disabled={uploading}
                     >
                       <DeleteIcon />
                     </IconButton>
                   </Box>
-                  
-                  {uploading && (
-                    <LinearProgress variant="determinate" value={uploadProgress} sx={{ mt: 1 }} />
-                  )}
-                  
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    sx={{ mt: 2 }}
-                    onClick={handleUploadFile}
-                    disabled={uploading}
-                    startIcon={uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                  >
-                    {uploading ? 'Subiendo...' : 'Subir Archivo'}
-                  </Button>
                 </Box>
               ) : (
                 <Button
@@ -404,7 +387,7 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.documentUrl || uploading}
+          disabled={loading || (!documentoId && !selectedFile) || (!!verification.validityPeriod && !formData.expiryDate)}
           startIcon={loading ? <CircularProgress size={20} /> : undefined}
         >
           {loading ? 'Enviando...' : 'Enviar Verificación'}

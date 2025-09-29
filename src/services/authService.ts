@@ -90,6 +90,35 @@ class AuthService {
     }
   }
 
+  async getCurrentUserWithVerifications(): Promise<any> {
+    try {
+      const token = this.getStoredToken();
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener usuario actual');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Error de conexión con el servidor');
+    }
+  }
+
   getStoredToken(): string | null {
     return localStorage.getItem('token');
   }

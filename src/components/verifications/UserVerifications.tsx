@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -12,12 +12,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  IconButton,
-  Tooltip,
   Badge,
   useTheme,
   useMediaQuery,
-  Stack,
   Divider,
   Grid
 } from '@mui/material';
@@ -44,7 +41,6 @@ interface UserVerificationsProps {
 
 export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [loading, setLoading] = useState(true);
@@ -58,11 +54,7 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    loadVerifications();
-  }, [userId]);
-
-  const loadVerifications = async () => {
+  const loadVerifications = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -84,7 +76,11 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadVerifications();
+  }, [loadVerifications]);
 
   const handleVerificationClick = (verification: VerificationDetail, companyId: string, companyName: string) => {
     setSelectedVerification({ verification, companyId, companyName });
@@ -265,7 +261,7 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
             
             <Grid container spacing={2}>
               {companyData.verifications.details.map((verification) => (
-                <Grid item xs={12} sm={6} md={4} key={verification.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={verification.id}>
                   <Card 
                     sx={{ 
                       height: '100%',

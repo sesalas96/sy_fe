@@ -96,7 +96,7 @@ export const Users: React.FC = () => {
   
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [, setSearchLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [totalCount, setTotalCount] = useState(0);
   
@@ -184,6 +184,7 @@ export const Users: React.FC = () => {
   // Efecto para aplicar filtros cuando cambia searchTerm
   useEffect(() => {
     if (searchTerm !== undefined) {
+      setSearchLoading(true);
       applyFilters();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -319,8 +320,6 @@ export const Users: React.FC = () => {
   // }, []);
 
   const handleClearAllFilters = useCallback(() => {
-    setSearchInput('');
-    setSearchTerm('');
     setRoleFilter('all');
     setStatusFilter('all');
     setCompanyFilter('all');
@@ -333,6 +332,20 @@ export const Users: React.FC = () => {
 
   const handleView = (user: User) => {
     navigate(`/users/${user._id || user.id}`);
+  };
+
+  const handleViewVerifications = (user: User) => {
+    // Navigate to user details with a state indicating to open the verifications tab
+    navigate(`/users/${user._id || user.id}`, { 
+      state: { openVerificationsTab: true } 
+    });
+  };
+
+  const handleViewEvaluations = (user: User) => {
+    // Navigate to user details with a state indicating to open the evaluations tab
+    navigate(`/users/${user._id || user.id}`, { 
+      state: { openEvaluationsTab: true } 
+    });
   };
 
   // const handleDeleteClick = (user: User) => {
@@ -547,24 +560,26 @@ export const Users: React.FC = () => {
     ].includes(role);
   };
 
-  const getVerificationStatus = (_user: User) => {
-    // Mock data - en producción esto vendría del backend
-    const mockStatus = {
-      verified: Math.random() > 0.7,
-      pending: Math.random() > 0.5 && Math.random() <= 0.7,
-      rejected: Math.random() > 0.3 && Math.random() <= 0.5,
-    };
-    
-    if (mockStatus.verified) return { status: 'verified', label: 'Verificado', color: 'success' as const };
-    if (mockStatus.pending) return { status: 'pending', label: 'Pendiente', color: 'warning' as const };
-    if (mockStatus.rejected) return { status: 'rejected', label: 'Rechazado', color: 'error' as const };
+  const getVerificationStatus = (user: User) => {
+    // Use real data from verificationSummary
+    if (user.verificationSummary) {
+      const { globalCompliance } = user.verificationSummary;
+      
+      if (globalCompliance === 'compliant') {
+        return { status: 'verified', label: 'Cumple', color: 'success' as const };
+      } else if (globalCompliance === 'partial') {
+        return { status: 'pending', label: 'Parcial', color: 'warning' as const };
+      } else if (globalCompliance === 'non_compliant') {
+        return { status: 'rejected', label: 'No cumple', color: 'error' as const };
+      }
+    }
     return { status: 'unverified', label: 'Sin verificar', color: 'default' as const };
   };
 
-  const getEvaluationScore = (_user: User) => {
-    // Mock data - en producción esto vendría del backend
-    if (Math.random() > 0.5) {
-      return Math.floor(Math.random() * 40) + 60; // Score between 60-100
+  const getEvaluationScore = (user: User) => {
+    // Use real data from reviewSummary
+    if (user.reviewSummary && user.reviewSummary.receivedReviews.averageRating > 0) {
+      return user.reviewSummary.receivedReviews.averageRating;
     }
     return null;
   };
@@ -701,7 +716,7 @@ export const Users: React.FC = () => {
   };
 
   const hasActiveFilters = () => {
-    return searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || companyFilter !== 'all';
+    return roleFilter !== 'all' || statusFilter !== 'all' || companyFilter !== 'all';
   };
 
   const openSidebar = (content: 'filters' | 'stats') => {
@@ -762,14 +777,10 @@ export const Users: React.FC = () => {
 
         {/* Action Buttons Row */}
         <Box sx={{ 
-          display: 'grid',
-          gridTemplateColumns: { 
-            xs: isMobile ? '1fr 1fr 1fr' : '1fr',
-            sm: 'repeat(3, 1fr)',
-            md: !isMobile ? 'repeat(2, minmax(150px, 200px))' : 'repeat(3, 1fr)'
-          },
+          display: 'flex',
           gap: { xs: 1, sm: 2 },
-          ...(isMobile && { width: '100%' })
+          flexWrap: 'wrap',
+          alignItems: 'center'
         }}>
           {/* Mobile Primary Action */}
           {isMobile && (
@@ -777,17 +788,15 @@ export const Users: React.FC = () => {
               variant="contained"
               onClick={handleAddNew}
               sx={{ 
-                display: 'flex',
-                flexDirection: 'column',
-                py: 2,
+                minWidth: { xs: 80, sm: 'auto' },
                 background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
                 }
               }}
             >
-              <AddIcon sx={{ mb: 0.5, fontSize: 24 }} />
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              <AddIcon sx={{ mr: { xs: 0, sm: 1 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'block' } }}>
                 Nuevo
               </Typography>
             </Button>
@@ -798,12 +807,7 @@ export const Users: React.FC = () => {
             variant="outlined"
             onClick={() => openSidebar('stats')}
             sx={{ 
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: 'center',
-              justifyContent: 'center',
-              py: { xs: 2, sm: 1 },
-              px: { xs: 1, sm: 2 },
+              minWidth: { xs: 'auto', sm: 120 },
               borderColor: 'divider',
               '&:hover': {
                 borderColor: 'primary.main',
@@ -812,13 +816,11 @@ export const Users: React.FC = () => {
             }}
           >
             <StatsIcon sx={{ 
-              mb: { xs: 0.5, sm: 0 }, 
               mr: { xs: 0, sm: 1 },
-              fontSize: { xs: 24, sm: 20 },
               color: 'primary.main'
             }} />
-            <Typography variant={isMobile ? "caption" : "button"} sx={{ fontWeight: { xs: 600, sm: 500 } }}>
-              {isMobile ? 'Estad.' : 'Estadísticas'}
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              Estadísticas
             </Typography>
           </Button>
           
@@ -826,12 +828,7 @@ export const Users: React.FC = () => {
             variant="outlined"
             onClick={() => openSidebar('filters')}
             sx={{ 
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: 'center',
-              justifyContent: 'center',
-              py: { xs: 2, sm: 1 },
-              px: { xs: 1, sm: 2 },
+              minWidth: { xs: 'auto', sm: 100 },
               position: 'relative',
               borderColor: 'divider',
               '&:hover': {
@@ -841,21 +838,19 @@ export const Users: React.FC = () => {
             }}
           >
             <FilterIcon sx={{ 
-              mb: { xs: 0.5, sm: 0 }, 
               mr: { xs: 0, sm: 1 },
-              fontSize: { xs: 24, sm: 20 },
               color: 'primary.main'
             }} />
-            <Typography variant={isMobile ? "caption" : "button"} sx={{ fontWeight: { xs: 600, sm: 500 } }}>
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'block' } }}>
               Filtros
             </Typography>
             {hasActiveFilters() && (
               <Box sx={{
                 position: 'absolute',
-                top: { xs: 4, sm: 6 },
-                right: { xs: 4, sm: 6 },
-                width: 10,
-                height: 10,
+                top: -6,
+                right: -6,
+                width: 12,
+                height: 12,
                 borderRadius: '50%',
                 bgcolor: 'error.main',
                 border: '2px solid',
@@ -863,6 +858,62 @@ export const Users: React.FC = () => {
               }} />
             )}
           </Button>
+        </Box>
+        
+        {/* Search Bar - Fuera del sidebar */}
+        <Box sx={{ 
+          mt: { xs: 2, sm: 3 },
+          mb: { xs: 2, sm: 3 }
+        }}>
+          <TextField
+            fullWidth
+            placeholder="Buscar por nombre, apellido o email..."
+            value={searchInput}
+            onChange={handleSearchInputChange}
+            size={isMobile ? "small" : "medium"}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <>
+                    {searchInput && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSearchInput('');
+                            setSearchTerm('');
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    )}
+                    {searchLoading && (
+                      <InputAdornment position="end">
+                        <CircularProgress size={20} />
+                      </InputAdornment>
+                    )}
+                  </>
+                )
+              }
+            }}
+            sx={{
+              maxWidth: { xs: '100%', sm: 600 },
+              '& .MuiOutlinedInput-root': {
+                bgcolor: 'background.paper',
+                '&:hover': {
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'primary.main',
+                  }
+                }
+              }
+            }}
+          />
         </Box>
       </Box>
 
@@ -972,58 +1023,83 @@ export const Users: React.FC = () => {
                       )}
                     </Box>
                   </Grid>
-                  {/* Verificación y Evaluación para contratistas */}
-                  {isContractor(user.role) && (
+                  {/* Verificación y Evaluación */}
+                  {(user.verificationSummary || user.reviewSummary) && (
                     <>
-                      <Grid size={{ xs: 6 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Verificación
-                        </Typography>
-                        <Box sx={{ mt: 0.5 }}>
-                          {(() => {
-                            const verification = getVerificationStatus(user);
-                            return (
-                              <Chip
-                                icon={<VerifiedIcon />}
-                                label={verification.label}
-                                size="small"
-                                color={verification.color}
-                                variant={verification.status === 'verified' ? 'filled' : 'outlined'}
-                              />
-                            );
-                          })()}
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Evaluación
-                        </Typography>
-                        <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center' }}>
-                          {(() => {
-                            const score = getEvaluationScore(user);
-                            return (
-                              <>
-                                <StarIcon sx={{ 
-                                  color: score ? 
-                                    (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
-                                    'text.disabled', 
-                                  fontSize: 20 
-                                }} />
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    ml: 0.5,
-                                    fontWeight: score ? 'medium' : 'normal',
-                                    color: score ? 'text.primary' : 'text.disabled'
-                                  }}
-                                >
-                                  {score ? `${score}%` : 'Sin evaluar'}
-                                </Typography>
-                              </>
-                            );
-                          })()}
-                        </Box>
-                      </Grid>
+                      {user.verificationSummary && (
+                        <Grid size={{ xs: 6 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Verificación
+                          </Typography>
+                          <Box sx={{ mt: 0.5 }}>
+                            {(() => {
+                              const verification = getVerificationStatus(user);
+                              const summary = user.verificationSummary;
+                              const tooltipContent = summary ? 
+                                `${summary.compliantCompanies}/${summary.totalCompanies} empresas` : 
+                                'Sin información';
+                              
+                              return (
+                                <Tooltip title={tooltipContent}>
+                                  <Chip
+                                    icon={<VerifiedIcon />}
+                                    label={verification.label}
+                                    size="small"
+                                    color={verification.color}
+                                    variant={verification.status === 'verified' ? 'filled' : 'outlined'}
+                                  />
+                                </Tooltip>
+                              );
+                            })()}
+                          </Box>
+                        </Grid>
+                      )}
+                      {user.reviewSummary && (
+                        <Grid size={{ xs: 6 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Evaluación
+                          </Typography>
+                          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center' }}>
+                            {(() => {
+                              const score = getEvaluationScore(user);
+                              const summary = user.reviewSummary;
+                              const totalReviews = summary?.receivedReviews.total || 0;
+                              
+                              return (
+                                <>
+                                  <StarIcon sx={{ 
+                                    color: score ? 
+                                      (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
+                                      'text.disabled', 
+                                    fontSize: 20 
+                                  }} />
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      ml: 0.5,
+                                      fontWeight: score ? 'medium' : 'normal',
+                                      color: score ? 'text.primary' : 'text.disabled'
+                                    }}
+                                  >
+                                    {score ? `${Math.round(score)}%` : 'Sin evaluar'}
+                                  </Typography>
+                                  {totalReviews > 0 && (
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        ml: 0.5,
+                                        color: 'text.secondary'
+                                      }}
+                                    >
+                                      ({totalReviews})
+                                    </Typography>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </Box>
+                        </Grid>
+                      )}
                     </>
                   )}
                 </Grid>
@@ -1082,26 +1158,33 @@ export const Users: React.FC = () => {
                   <TableCell>{getStatusChip(user)}</TableCell>
                   {/* Verificación Column */}
                   <TableCell align="center">
-                    {isContractor(user.role) ? (
+                    {user.verificationSummary ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                         {(() => {
                           const verification = getVerificationStatus(user);
+                          const summary = user.verificationSummary;
+                          const tooltipContent = summary ? 
+                            `Empresas cumplidas: ${summary.compliantCompanies}/${summary.totalCompanies}` : 
+                            'Sin información de verificación';
+                          
                           return (
-                            <Chip
-                              icon={<VerifiedIcon />}
-                              label={verification.label}
-                              size="small"
-                              color={verification.color}
-                              variant={verification.status === 'verified' ? 'filled' : 'outlined'}
-                            />
+                            <Tooltip title={tooltipContent}>
+                              <Chip
+                                icon={<VerifiedIcon />}
+                                label={verification.label}
+                                size="small"
+                                color={verification.color}
+                                variant={verification.status === 'verified' ? 'filled' : 'outlined'}
+                              />
+                            </Tooltip>
                           );
                         })()}
                         {canManageUsers() && (
-                          <Tooltip title="Gestionar verificación">
+                          <Tooltip title="Ver verificaciones detalladas">
                             <IconButton 
                               size="small" 
                               color="primary"
-                              onClick={() => handleVerifyContractor(user)}
+                              onClick={() => handleViewVerifications(user)}
                             >
                               <VerifiedIcon />
                             </IconButton>
@@ -1114,37 +1197,56 @@ export const Users: React.FC = () => {
                   </TableCell>
                   {/* Evaluación Column */}
                   <TableCell align="center">
-                    {isContractor(user.role) ? (
+                    {user.reviewSummary ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                         {(() => {
                           const score = getEvaluationScore(user);
+                          const summary = user.reviewSummary;
+                          const totalReviews = summary?.receivedReviews.total || 0;
+                          const tooltipContent = summary ? 
+                            `${totalReviews} evaluación${totalReviews !== 1 ? 'es' : ''} • ${summary.receivedReviews.wouldHireAgainPercentage}% lo contrataría de nuevo` : 
+                            'Sin evaluaciones';
+                          
                           return (
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <StarIcon sx={{ 
-                                color: score ? 
-                                  (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
-                                  'text.disabled', 
-                                fontSize: 20 
-                              }} />
-                              <Typography 
-                                variant="body2" 
-                                sx={{ 
-                                  ml: 0.5,
-                                  fontWeight: score ? 'medium' : 'normal',
-                                  color: score ? 'text.primary' : 'text.disabled'
-                                }}
-                              >
-                                {score ? `${score}%` : '--'}
-                              </Typography>
-                            </Box>
+                            <Tooltip title={tooltipContent}>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <StarIcon sx={{ 
+                                  color: score ? 
+                                    (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
+                                    'text.disabled', 
+                                  fontSize: 20 
+                                }} />
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    ml: 0.5,
+                                    fontWeight: score ? 'medium' : 'normal',
+                                    color: score ? 'text.primary' : 'text.disabled'
+                                  }}
+                                >
+                                  {score ? `${Math.round(score)}%` : '--'}
+                                </Typography>
+                                {totalReviews > 0 && (
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      ml: 0.5,
+                                      color: 'text.secondary'
+                                    }}
+                                  >
+                                    ({totalReviews})
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Tooltip>
                           );
                         })()}
                         {(hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER])) && (
-                          <Tooltip title="Evaluar contratista">
+                          <Tooltip title="Ver evaluaciones">
                             <IconButton 
                               size="small" 
                               color="primary"
-                              onClick={() => handleEvaluateContractor(user)}
+                              onClick={() => handleViewEvaluations(user)}
                             >
                               <AssessmentIcon />
                             </IconButton>
@@ -1431,24 +1533,6 @@ export const Users: React.FC = () => {
               </Box>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Search Filter */}
-                <TextField
-                  fullWidth
-                  label="Búsqueda"
-                  placeholder="Buscar usuarios..."
-                  value={searchInput}
-                  onChange={handleSearchInputChange}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      )
-                    }
-                  }}
-                />
-
                 {/* Role Filter */}
                 <FormControl fullWidth>
                   <InputLabel>Filtrar por Rol</InputLabel>

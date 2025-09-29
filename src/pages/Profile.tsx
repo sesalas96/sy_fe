@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useLocation } from 'react-router-dom';
 
 // Import role-specific profiles
 import {
@@ -36,10 +37,19 @@ export const Profile: React.FC = () => {
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const location = useLocation();
   usePageTitle('Mi Perfil', 'Configuración personal y verificaciones');
   
   const [success, setSuccess] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  
+  // Check if we should navigate to verifications tab
+  useEffect(() => {
+    const state = location.state as { tab?: string };
+    if (state?.tab === 'verifications') {
+      setTabValue(1); // Switch to verifications tab
+    }
+  }, [location]);
 
   const handleSave = async () => {
     // Simulate save operation

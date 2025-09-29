@@ -10,7 +10,8 @@ import {
   Avatar,
   Button,
   Collapse,
-  Divider
+  Divider,
+  Badge
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -23,13 +24,13 @@ import {
   ExpandLess,
   ExpandMore,
   Category as CategoryIcon,
-  Store as MarketplaceIcon,
-  Build as ServicesIcon,
-  RequestPage as RequestsIcon,
-  Work as WorkOrdersIcon,
-  Search as InspectionsIcon,
-  Visibility as ViewIcon,
-  LocalOffer as MyBidsIcon,
+  // Store as MarketplaceIcon,
+  // Build as ServicesIcon,
+  // RequestPage as RequestsIcon,
+  // Work as WorkOrdersIcon,
+  // Search as InspectionsIcon,
+  // Visibility as ViewIcon,
+  // LocalOffer as MyBidsIcon,
   School as SchoolIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -127,51 +128,52 @@ const menuItems: MenuItem[] = [
       }
     ]
   },
-  {
-    title: 'Mercado Digital',
-    icon: <MarketplaceIcon />,
-    roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO],
-    children: [
-      // Management section (for clients)
-      {
-        title: 'Órdenes de Trabajo',
-        icon: <WorkOrdersIcon />,
-        path: '/marketplace/work-orders',
-        roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_SUBALTERNOS]
-      },
-      {
-        title: 'Solicitudes de Trabajo',
-        icon: <RequestsIcon />,
-        path: '/marketplace/work-requests',
-        roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
-      },
-      {
-        title: 'Inspecciones',
-        icon: <InspectionsIcon />,
-        path: '/marketplace/inspections',
-        roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
-      },
-      {
-        title: 'Catálogo de Servicios',
-        icon: <ServicesIcon />,
-        path: '/marketplace/services',
-        roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
-      },
-      // Contractor section
-      {
-        title: 'Oportunidades de Licitación',
-        icon: <ViewIcon />,
-        path: '/marketplace/opportunities',
-        roles: [UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO]
-      },
-      {
-        title: 'Mis Propuestas',
-        icon: <MyBidsIcon />,
-        path: '/marketplace/my-bids',
-        roles: [UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO]
-      }
-    ]
-  },
+  // TEMPORALMENTE OCULTO - MERCADO DIGITAL
+  // {
+  //   title: 'Mercado Digital',
+  //   icon: <MarketplaceIcon />,
+  //   roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO],
+  //   children: [
+  //     // Management section (for clients)
+  //     {
+  //       title: 'Órdenes de Trabajo',
+  //       icon: <WorkOrdersIcon />,
+  //       path: '/marketplace/work-orders',
+  //       roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_SUBALTERNOS]
+  //     },
+  //     {
+  //       title: 'Solicitudes de Trabajo',
+  //       icon: <RequestsIcon />,
+  //       path: '/marketplace/work-requests',
+  //       roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
+  //     },
+  //     {
+  //       title: 'Inspecciones',
+  //       icon: <InspectionsIcon />,
+  //       path: '/marketplace/inspections',
+  //       roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
+  //     },
+  //     {
+  //       title: 'Catálogo de Servicios',
+  //       icon: <ServicesIcon />,
+  //       path: '/marketplace/services',
+  //       roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER]
+  //     },
+  //     // Contractor section
+  //     {
+  //       title: 'Oportunidades de Licitación',
+  //       icon: <ViewIcon />,
+  //       path: '/marketplace/opportunities',
+  //       roles: [UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO]
+  //     },
+  //     {
+  //       title: 'Mis Propuestas',
+  //       icon: <MyBidsIcon />,
+  //       path: '/marketplace/my-bids',
+  //       roles: [UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_HUERFANO]
+  //     }
+  //   ]
+  // },
   // {
   //   title: 'Facturación',
   //   icon: <InvoicesIcon />,
@@ -188,7 +190,7 @@ const menuItems: MenuItem[] = [
     title: 'Cursos',
     icon: <SchoolIcon />,
     path: '/courses',
-    roles: [UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER, UserRole.CLIENT_STAFF, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_SUBALTERNOS, UserRole.CONTRATISTA_HUERFANO, UserRole.VALIDADORES_OPS]
+    roles: [UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER, UserRole.CLIENT_STAFF, UserRole.CONTRATISTA_ADMIN, UserRole.CONTRATISTA_SUBALTERNOS, UserRole.CONTRATISTA_HUERFANO, UserRole.VALIDADORES_OPS]
   },
   // {
   //   title: 'Notificaciones',
@@ -223,7 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, hasRole, logout, userAvatarUrl } = useAuth();
+  const { user, hasRole, logout, userAvatarUrl, pendingVerifications } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   // Auto-expand/collapse menus based on current route
@@ -448,19 +450,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               onClick={() => handleNavigate('/profile')}
             >
-              <Avatar
+              <Badge 
+                badgeContent={pendingVerifications?.total || 0} 
+                color="error"
                 sx={{
-                  width: 32,
-                  height: 32,
-                  mr: 1.5,
-                  bgcolor: userAvatarUrl ? 'transparent' : 'primary.main',
-                  fontSize: '0.75rem'
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.65rem',
+                    height: 16,
+                    minWidth: 16,
+                    right: -5,
+                    top: -5
+                  }
                 }}
-                src={userAvatarUrl || undefined}
+                invisible={!pendingVerifications || pendingVerifications.total === 0}
               >
-                {!userAvatarUrl && getInitials(user.name)}
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    mr: 1.5,
+                    bgcolor: userAvatarUrl ? 'transparent' : 'primary.main',
+                    fontSize: '0.75rem'
+                  }}
+                  src={userAvatarUrl || undefined}
+                >
+                  {!userAvatarUrl && getInitials(user.name)}
+                </Avatar>
+              </Badge>
+              <Box sx={{ flex: 1, minWidth: 0, ml: 0.5 }}>
                 <Typography
                   variant="body2"
                   noWrap
@@ -473,6 +490,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   {user.name}
                 </Typography>
+                {pendingVerifications && pendingVerifications.total > 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'error.main',
+                      fontSize: '0.688rem',
+                      display: 'block'
+                    }}
+                  >
+                    {pendingVerifications.total} documento{pendingVerifications.total !== 1 ? 's' : ''} pendiente{pendingVerifications.total !== 1 ? 's' : ''}
+                  </Typography>
+                )}
               </Box>
             </Box>
 

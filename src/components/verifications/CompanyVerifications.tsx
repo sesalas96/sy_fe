@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -154,11 +154,7 @@ export const CompanyVerifications: React.FC<CompanyVerificationsProps> = ({ comp
     return hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF]);
   };
 
-  useEffect(() => {
-    loadVerifications();
-  }, [companyId]);
-
-  const loadVerifications = async () => {
+  const loadVerifications = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -170,7 +166,11 @@ export const CompanyVerifications: React.FC<CompanyVerificationsProps> = ({ comp
     } finally {
       setLoading(false);
     }
-  };
+  }, [companyId]);
+
+  useEffect(() => {
+    loadVerifications();
+  }, [loadVerifications]);
 
   const loadStats = async () => {
     try {

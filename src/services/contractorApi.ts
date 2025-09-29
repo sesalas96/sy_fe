@@ -210,7 +210,8 @@ export const contractorApi = {
 
   // Get contractor verification data
   getVerification: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/contractors/${id}/verification`);
+    return apiCall('GET', `/
+      api/contractors/${id}/verification`);
   },
 
   // Update contractor verification status
@@ -218,12 +219,12 @@ export const contractorApi = {
     status: 'verified' | 'rejected';
     rejectionReason?: string;
   }): Promise<ApiResponse<any>> => {
-    return apiCall('PUT', `/contractors/${id}/verification`, data);
+    return apiCall('PUT', `/api/contractors/${id}/verification`, data);
   },
 
   // Get contractor evaluations
   getEvaluations: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/contractors/${id}/evaluations`);
+    return apiCall('GET', `/api/contractors/${id}/evaluations`);
   },
 
   // Add new evaluation
@@ -236,12 +237,12 @@ export const contractorApi = {
     };
     comments?: string;
   }): Promise<ApiResponse<any>> => {
-    return apiCall('POST', `/contractors/${id}/evaluate`, evaluation);
+    return apiCall('POST', `/api/contractors/${id}/evaluate`, evaluation);
   },
 
   // Get contractor certifications
   getCertifications: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/contractors/${id}/certifications`);
+    return apiCall('GET', `/api/contractors/${id}/certifications`);
   },
 
   // Add new certification
@@ -254,17 +255,17 @@ export const contractorApi = {
     certificateNumber: string;
     documentUrl?: string;
   }): Promise<ApiResponse<any>> => {
-    return apiCall('POST', `/contractors/${id}/certifications`, certification);
+    return apiCall('POST', `/api/contractors/${id}/certifications`, certification);
   },
 
   // Get terms acceptance status
   getTermsAcceptance: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/contractors/${id}/terms`);
+    return apiCall('GET', `/api/contractors/${id}/terms`);
   },
 
   // Get verification documents
   getVerificationDocuments: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/contractors/${id}/verification-documents`);
+    return apiCall('GET', `/api/contractors/${id}/verification-documents`);
   },
 
   // Export contractors

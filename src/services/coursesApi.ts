@@ -91,7 +91,7 @@ class CoursesApi {
   async getUserProgress(userId: string) {
     try {
       const response = await fetch(
-        `${BASE_URL}/courses/progress/${userId}`,
+        `${BASE_URL}/api/courses/progress/${userId}`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -114,7 +114,7 @@ class CoursesApi {
   async enrollInCourse(courseId: string) {
     try {
       const response = await fetch(
-        `${BASE_URL}/courses/${courseId}/enroll`,
+        `${BASE_URL}/api/courses/${courseId}/enroll`,
         {
           method: 'POST',
           headers: this.getAuthHeaders()
@@ -141,7 +141,7 @@ class CoursesApi {
   }) {
     try {
       const response = await fetch(
-        `${BASE_URL}/courses/${courseId}/complete`,
+        `${BASE_URL}/api/courses/${courseId}/complete`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
@@ -165,7 +165,7 @@ class CoursesApi {
   async getExpiringCourses(days: number = 30) {
     try {
       const response = await fetch(
-        `${BASE_URL}/courses/expirations?days=${days}`,
+        `${BASE_URL}/api/courses/expirations?days=${days}`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -188,7 +188,7 @@ class CoursesApi {
   async downloadCertificate(courseId: string) {
     try {
       const response = await fetch(
-        `${BASE_URL}/courses/${courseId}/certificate`,
+        `${BASE_URL}/api/courses/${courseId}/certificate`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -211,7 +211,7 @@ class CoursesApi {
   async testTalentLMSConnection() {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/test-connection`,
+        `${BASE_URL}/api/talent-lms/test-connection`,
         {
           method: 'POST',
           headers: this.getAuthHeaders()
@@ -234,7 +234,7 @@ class CoursesApi {
   async syncContractorToTalentLMS(contractorId: string, forceSync: boolean = false) {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/sync-contractor`,
+        `${BASE_URL}/api/talent-lms/sync-contractor`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
@@ -258,7 +258,7 @@ class CoursesApi {
   async getContractorProgress(contractorId: string): Promise<TalentLMSProgress> {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/contractor/${contractorId}/progress`,
+        `${BASE_URL}/api/talent-lms/contractors/${contractorId}/progress`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -281,7 +281,7 @@ class CoursesApi {
   async enrollContractorInCourses(contractorId: string, courseIds: string[]) {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/enroll`,
+        `${BASE_URL}/api/talent-lms/enroll-contractor`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
@@ -305,7 +305,7 @@ class CoursesApi {
   async syncContractorCompletions(contractorId: string) {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/contractor/${contractorId}/sync-completions`,
+        `${BASE_URL}/api/talent-lms/contractors/${contractorId}/sync-completions`,
         {
           method: 'POST',
           headers: this.getAuthHeaders()
@@ -328,7 +328,7 @@ class CoursesApi {
   async autoEnrollContractor(contractorId: string) {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/contractor/${contractorId}/auto-enroll`,
+        `${BASE_URL}/api/talent-lms/contractors/${contractorId}/auto-enroll`,
         {
           method: 'POST',
           headers: this.getAuthHeaders()
@@ -351,7 +351,7 @@ class CoursesApi {
   async getTalentLMSCourses() {
     try {
       const response = await fetch(
-        `${BASE_URL}/talentlms/courses`,
+        `${BASE_URL}/api/talent-lms/courses`,
         {
           method: 'GET',
           headers: this.getAuthHeaders()
@@ -367,6 +367,29 @@ class CoursesApi {
       return result;
     } catch (error) {
       console.error('Error fetching TalentLMS courses:', error);
+      throw error;
+    }
+  }
+
+  async getTalentLMSAvailableCourses() {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/courses`,
+        {
+          method: 'GET',
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al obtener cursos disponibles');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching available courses:', error);
       throw error;
     }
   }
@@ -390,6 +413,260 @@ class CoursesApi {
       return result;
     } catch (error) {
       console.error('Error syncing with TalentLMS:', error);
+      throw error;
+    }
+  }
+
+  // User course management methods
+  async getUserCourses(userId: string, params?: { type?: string; status?: string }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.status) queryParams.append('status', params.status);
+
+      const url = `${BASE_URL}/api/users/${userId}/courses${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al obtener cursos del usuario');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching user courses:', error);
+      throw error;
+    }
+  }
+
+  async enrollUserInCourse(userId: string, courseId: string) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/users/${userId}/courses/enroll`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ courseId })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al inscribir usuario en el curso');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error enrolling user in course:', error);
+      throw error;
+    }
+  }
+
+  async markUserCourseComplete(userId: string, courseId: string, data?: { score?: number; certificateUrl?: string }) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/users/${userId}/courses/${courseId}/complete`,
+        {
+          method: 'PUT',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(data || {})
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al marcar curso como completado');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error marking user course complete:', error);
+      throw error;
+    }
+  }
+
+  async updateUserCourseProgress(userId: string, courseId: string, progress: number) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/users/${userId}/courses/${courseId}/progress`,
+        {
+          method: 'PUT',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ progress })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al actualizar progreso del curso');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error updating user course progress:', error);
+      throw error;
+    }
+  }
+
+  // TalentLMS user methods
+  async syncUserToTalentLMS(userId: string) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/sync-user`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ userId })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al sincronizar usuario con TalentLMS');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error syncing user to TalentLMS:', error);
+      throw error;
+    }
+  }
+
+  async enrollUserInTalentLMSCourses(userId: string, courseIds: string[]) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/enroll-user-simple`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ userId, courseIds })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al inscribir usuario en cursos');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error enrolling user in courses:', error);
+      throw error;
+    }
+  }
+
+  async getUserTalentLMSProgress(userId: string) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/users/${userId}/progress`,
+        {
+          method: 'GET',
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al obtener progreso del usuario en TalentLMS');
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error('Error fetching user TalentLMS progress:', error);
+      throw error;
+    }
+  }
+
+  async syncUserCompletions(userId: string) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/users/${userId}/sync-completions`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al sincronizar cursos completados del usuario');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error syncing user completions:', error);
+      throw error;
+    }
+  }
+
+  async searchTalentLMSUser(params: { id?: string; email?: string; username?: string }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.id) queryParams.append('id', params.id);
+      if (params.email) queryParams.append('email', params.email);
+      if (params.username) queryParams.append('username', params.username);
+
+      const url = `${BASE_URL}/api/talent-lms/search-user?${queryParams.toString()}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      const result = await response.json();
+
+      if (!response.ok && response.status !== 404) {
+        throw new Error(result.message || 'Error al buscar usuario en TalentLMS');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error searching TalentLMS user:', error);
+      throw error;
+    }
+  }
+
+  async signupTalentLMSUser(userData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    login: string;
+    password: string;
+    userType?: 'SuperAdmin' | 'Admin-Type' | 'Trainer-Type' | 'Learner-Type';
+    language?: string;
+    timezone?: string;
+    restrictEmail?: string;
+    customFields?: Record<string, string>;
+  }) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/signup-user`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(userData)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al registrar usuario en TalentLMS');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error signing up TalentLMS user:', error);
       throw error;
     }
   }

@@ -19,7 +19,6 @@ import {
   Alert,
   Breadcrumbs,
   Link,
-  Chip,
   IconButton,
   useTheme,
   useMediaQuery,
@@ -222,7 +221,7 @@ export const CompanyForm: React.FC = () => {
     if (!url.trim()) return true; // Optional field
     
     // Regular expression for URL validation
-    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+    const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/i;
     
     // Check if it matches basic URL pattern
     if (urlPattern.test(url)) {

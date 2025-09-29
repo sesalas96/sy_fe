@@ -3,6 +3,8 @@ import { User, UserRole, Company } from '../types';
 import authService from '../services/authService';
 import { trackingService } from '../services/trackingService';
 import { fileService } from '../services/fileService';
+import { userVerificationsApi, UserCompanyVerifications } from '../services/userVerificationsApi';
+import { PendingVerificationsCount, calculatePendingVerifications } from '../utils/verificationUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -20,6 +22,9 @@ interface AuthContextType {
   endImpersonation: () => Promise<void>;
   checkImpersonationStatus: () => Promise<void>;
   refreshUserAvatar: () => Promise<void>; // Para refrescar el avatar
+  // Pending verifications
+  pendingVerifications: PendingVerificationsCount | null;
+  refreshPendingVerifications: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [originalAdmin, setOriginalAdmin] = useState<{ id: string; email: string } | null>(null);
+  const [pendingVerifications, setPendingVerifications] = useState<PendingVerificationsCount | null>(null);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -66,6 +72,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
             // Load user avatar on session restore
             loadUserAvatar(restoredUser);
+            // Load pending verifications
+            loadPendingVerifications(restoredUser);
           } catch (error) {
             // Token is invalid or expired, clear everything
             console.warn('Token validation failed, clearing session');
@@ -144,10 +152,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Function to load pending verifications
+  const loadPendingVerifications = async (userData: User) => {
+    try {
+      console.log('Loading pending verifications for user:', userData.email);
+      // Try to load verifications for all users
+      const verifications = await userVerificationsApi.getMyVerifications();
+      console.log('Verifications received:', verifications);
+      const pendingCount = calculatePendingVerifications(verifications);
+      console.log('Pending count:', pendingCount);
+      setPendingVerifications(pendingCount);
+    } catch (error) {
+      console.error('Error loading pending verifications:', error);
+      setPendingVerifications(null);
+    }
+  };
+
+  // Function to refresh pending verifications
+  const refreshPendingVerifications = async () => {
+    if (user) {
+      await loadPendingVerifications(user);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       // Call the backend API
       const response = await authService.login(email, password);
+      console.log('Login response:', response);
       
       // Store the token
       authService.setToken(response.token);
@@ -226,6 +258,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Load user avatar after successful login
       loadUserAvatar(user);
       
+      // Check if companiesVerifications came in the login response
+      if ((response.user as any).companiesVerifications) {
+        console.log('Found companiesVerifications in login response');
+        const pendingCount = calculatePendingVerifications((response.user as any).companiesVerifications);
+        setPendingVerifications(pendingCount);
+      } else {
+        // Load pending verifications after successful login
+        loadPendingVerifications(user);
+      }
+      
       // Return the user for login redirect
       return user;
     } catch (error) {
@@ -297,7 +339,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/impersonate/${userId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/api/auth/impersonate/${userId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -359,7 +401,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = authService.getStoredToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/end-impersonation`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/api/auth/end-impersonation`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -429,7 +471,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (isImpersonating) {
         // Silent cleanup on unmount
         navigator.sendBeacon(
-          `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/auth/end-impersonation`,
+          `${process.env.REACT_APP_API_URL || 'https://sybe-production.up.railway.app/api'}/api/auth/end-impersonation`,
           JSON.stringify({ silent: true })
         );
       }
@@ -452,7 +494,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         impersonateUser,
         endImpersonation,
         checkImpersonationStatus,
-        refreshUserAvatar
+        refreshUserAvatar,
+        pendingVerifications,
+        refreshPendingVerifications
       }}
     >
       {children}

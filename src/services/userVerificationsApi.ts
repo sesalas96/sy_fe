@@ -1,4 +1,30 @@
-import apiClient from './apiClient';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+// Helper function for API calls
+const apiCall = async (method: string, endpoint: string, data?: any) => {
+  const token = localStorage.getItem('token');
+  
+  const config: RequestInit = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  };
+
+  if (data && method !== 'GET') {
+    config.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Network error' }));
+    throw new Error(errorData.message || 'API call failed');
+  }
+
+  return response.json();
+};
 
 export interface UserVerificationCompany {
   id: string;
@@ -9,7 +35,10 @@ export interface UserVerificationCompany {
 }
 
 export interface VerificationDetail {
-  id: string;
+  id: string; // Template verification ID
+  _id?: string; // Alternative field for UserCompanyVerification ID
+  userVerificationId?: string; // UserCompanyVerification ID (for submitted verifications)
+  userCompanyVerificationId?: string; // Another possible field name
   name: string;
   type: string;
   category?: string;
@@ -17,6 +46,7 @@ export interface VerificationDetail {
   isRequired: boolean;
   status: 'not_submitted' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'expired';
   documentUrl?: string;
+  documentoId?: string; // GridFS document ID
   certificateNumber?: string;
   submittedAt?: string;
   approvedAt?: string;
@@ -51,8 +81,41 @@ class UserVerificationsApi {
   // Get all verifications for the current user across all companies
   async getMyVerifications(): Promise<UserCompanyVerifications[]> {
     try {
-      const response = await apiClient.get('/api/verifications/users/me/all');
-      return response.data;
+      // First try to get from auth/me endpoint
+      const token = localStorage.getItem('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Auth/me response:', data);
+          
+          // Check if companiesVerifications exists in the response
+          if (data.user && data.user.companiesVerifications) {
+            console.log('Found companiesVerifications in user data');
+            return data.user.companiesVerifications;
+          }
+        }
+      }
+      
+      // Fallback to verifications endpoint
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.id || user._id;
+      if (!userId) throw new Error('User ID not found');
+      
+      console.log('Falling back to verifications endpoint');
+      const result = await apiCall('GET', `/api/verifications/users/${userId}/all`);
+      
+      // Handle response format
+      if (result.success && result.data) {
+        return result.data;
+      }
+      return result;
     } catch (error) {
       console.error('Error fetching user verifications:', error);
       throw error;
@@ -62,8 +125,13 @@ class UserVerificationsApi {
   // Get verifications for a specific user (requires permissions)
   async getUserVerifications(userId: string): Promise<UserCompanyVerifications[]> {
     try {
-      const response = await apiClient.get(`/api/verifications/users/${userId}/all`);
-      return response.data;
+      const result = await apiCall('GET', `/api/verifications/users/${userId}/all`);
+      
+      // Handle response format
+      if (result.success && result.data) {
+        return result.data;
+      }
+      return result;
     } catch (error) {
       console.error('Error fetching user verifications:', error);
       throw error;
@@ -73,8 +141,8 @@ class UserVerificationsApi {
   // Get user verifications for a specific company
   async getUserCompanyVerifications(userId: string, companyId: string): Promise<UserCompanyVerifications> {
     try {
-      const response = await apiClient.get(`/api/verifications/users/${userId}/companies/${companyId}`);
-      return response.data;
+      return await apiCall('GET', `/api/verifications/users/${userId}/companies/${companyId}`);
+
     } catch (error) {
       console.error('Error fetching user company verifications:', error);
       throw error;
@@ -88,11 +156,7 @@ class UserVerificationsApi {
     data: SubmitVerificationData
   ): Promise<any> {
     try {
-      const response = await apiClient.post(
-        `/api/verifications/companies/${companyId}/verifications/${verificationId}/submit`,
-        data
-      );
-      return response.data;
+      return await apiCall('POST', `/api/verifications/companies/${companyId}/verifications/${verificationId}/submit`, data);
     } catch (error) {
       console.error('Error submitting verification:', error);
       throw error;
@@ -102,18 +166,53 @@ class UserVerificationsApi {
   // Upload document for verification
   async uploadVerificationDocument(file: File): Promise<{ url: string }> {
     try {
+      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await apiClient.post('/api/upload/verification-document', formData, {
+      const response = await fetch(`${API_BASE_URL}/api/upload/verification-document`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
         },
+        body: formData
       });
       
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+        throw new Error(errorData.message || 'Upload failed');
+      }
+      
+      return response.json();
     } catch (error) {
       console.error('Error uploading verification document:', error);
+      throw error;
+    }
+  }
+
+  // Review a user verification (approve or reject)
+  async reviewVerification(
+    userVerificationId: string,
+    decision: 'approve' | 'reject',
+    rejectionReason?: string,
+    expiryDate?: string
+  ): Promise<any> {
+    try {
+      const data: any = { 
+        status: decision === 'approve' ? 'approved' : 'rejected' 
+      };
+      
+      if (decision === 'approve' && expiryDate) {
+        data.expiryDate = expiryDate;
+      }
+      
+      if (decision === 'reject' && rejectionReason) {
+        data.rejectionReason = rejectionReason;
+      }
+      
+      return await apiCall('PUT', `/api/verifications/user-verifications/${userVerificationId}/review`, data);
+    } catch (error) {
+      console.error('Error reviewing verification:', error);
       throw error;
     }
   }

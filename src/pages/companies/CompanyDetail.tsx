@@ -11,7 +11,6 @@ import {
   Card,
   CardContent,
   Alert,
-  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -137,22 +136,6 @@ export const CompanyDetail: React.FC = () => {
     );
   };
 
-  const getCertificationStatusChip = (status: string) => {
-    const statusConfig: Record<string, { label: string; color: 'success' | 'error' | 'warning' | 'default' }> = {
-      valid: { label: 'Válida', color: 'success' as const },
-      expired: { label: 'Vencida', color: 'error' as const },
-      pending: { label: 'Pendiente', color: 'warning' as const }
-    };
-
-    const config = statusConfig[status] || { label: 'Desconocido', color: 'default' as const };
-    return (
-      <Chip
-        label={config.label}
-        color={config.color}
-        size="small"
-      />
-    );
-  };
 
   const getInsuranceExpiryWarning = (expiryDate: Date) => {
     const today = new Date();

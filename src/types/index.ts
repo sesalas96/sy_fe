@@ -24,7 +24,18 @@ export interface User {
   lastName: string;
   name?: string;
   phone?: string; // Added direct phone property
+  cedula?: string;
   role: UserRole;
+  departments?: {
+    _id: string;
+    name: string;
+    code?: string;
+    description?: string;
+    company?: {
+      _id: string;
+      name: string;
+    };
+  }[];
   company?: {
     _id: string;
     name: string;
@@ -39,6 +50,16 @@ export interface User {
     };
   } | null;
   companyId?: string;
+  companies?: {
+    companyId: string;
+    companyName: string;
+    companyRuc?: string;
+    role: UserRole;
+    isPrimary: boolean;
+    isActive: boolean;
+    startDate: string;
+    permissions: string[];
+  }[];
   supervisedCompanies?: {
     _id: string;
     name: string;
@@ -48,6 +69,41 @@ export interface User {
   status: 'active' | 'inactive';
   acceptedTerms: boolean;
   acceptedPrivacyPolicy: boolean;
+  verificationSummary?: {
+    totalCompanies: number;
+    compliantCompanies: number;
+    partialCompanies: number;
+    nonCompliantCompanies: number;
+    details: {
+      companyId: string;
+      companyName: string;
+      complianceStatus: 'compliant' | 'partial' | 'non_compliant';
+      verificationsTotal: number;
+      verificationsCompleted: number;
+      verificationsPending: number;
+      verificationsExpired: number;
+    }[];
+    globalCompliance: 'compliant' | 'partial' | 'non_compliant';
+  };
+  reviewSummary?: {
+    receivedReviews: {
+      total: number;
+      averageRating: number;
+      wouldHireAgainPercentage: number;
+      recentReviews: any[];
+    };
+    givenReviews: {
+      total: number;
+      recentCount: number;
+    };
+    performance: {
+      punctuality: number;
+      quality: number;
+      safety: number;
+      communication: number;
+      professionalBehavior: number;
+    };
+  };
   termsAcceptedAt: string;
   privacyPolicyAcceptedAt: string;
   profile?: {
@@ -567,4 +623,115 @@ export interface AuditLog {
   ipAddress: string;
   userAgent: string;
   timestamp: Date;
+}
+
+// Review Types
+export interface Review {
+  _id: string;
+  contractor: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  reviewer: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    company: {
+      _id: string;
+      name: string;
+    };
+  };
+  company: {
+    _id: string;
+    name: string;
+  };
+  rating: number;
+  punctuality: number;
+  quality: number;
+  safety: number;
+  communication: number;
+  professionalBehavior: number;
+  comment: string;
+  wouldHireAgain: boolean;
+  projectName?: string;
+  workType?: string;
+  tags?: string[];
+  flagged?: {
+    isFlagged: boolean;
+    reason?: string;
+    description?: string;
+    flaggedBy?: string;
+    flaggedAt?: string;
+  };
+  response?: {
+    text: string;
+    date: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReviewInput {
+  contractorId: string;
+  rating: number;
+  punctuality: number;
+  quality: number;
+  safety: number;
+  communication: number;
+  professionalBehavior: number;
+  comment: string;
+  wouldHireAgain: boolean;
+  projectName?: string;
+  workType?: string;
+  tags?: string[];
+}
+
+export interface UpdateReviewInput {
+  rating?: number;
+  punctuality?: number;
+  quality?: number;
+  safety?: number;
+  communication?: number;
+  professionalBehavior?: number;
+  comment?: string;
+  wouldHireAgain?: boolean;
+  projectName?: string;
+  workType?: string;
+  tags?: string[];
+}
+
+export interface ReviewSummary {
+  totalReviews: number;
+  averageRating: number;
+  wouldHireAgainPercentage: number;
+  metrics: {
+    punctuality: number;
+    quality: number;
+    safety: number;
+    communication: number;
+    professionalBehavior: number;
+  };
+  ratingDistribution: {
+    '1': number;
+    '2': number;
+    '3': number;
+    '4': number;
+    '5': number;
+  };
+}
+
+export interface ReviewFilters {
+  rating?: number;
+  wouldHireAgain?: boolean;
+  companyId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  tags?: string[];
+}
+
+export interface FlagReviewInput {
+  reason: string;
+  description?: string;
 }

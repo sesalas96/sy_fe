@@ -32,14 +32,31 @@ class FileService {
         formData.append('uploadedBy', userId);
       }
 
+      const token = localStorage.getItem('token');
       const response = await axios.post(`${this.apiUrl}/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         },
         timeout: 30000, // 30 segundos para subida
       });
 
-      return response.data;
+      // Handle different response formats
+      const data = response.data;
+      
+      // If the response has a file object with an id
+      if (data.file && data.file.id) {
+        return {
+          success: true,
+          fileId: data.file.id,
+          filename: data.file.filename,
+          originalName: data.file.originalName,
+          message: data.message
+        };
+      }
+      
+      // Otherwise return as is
+      return data;
     } catch (error: any) {
       if (error.response?.data) {
         return {
