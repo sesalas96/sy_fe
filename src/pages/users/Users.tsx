@@ -764,9 +764,41 @@ export const Users: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6" fontWeight="medium" sx={{ mb: 0.5 }}>
-                      {user.firstName} {user.lastName}
-                    </Typography>
+                    <Tooltip
+                      title={
+                        <Box>
+                          {user.cedula && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              <strong>Cédula: </strong> {user.cedula}
+                            </Typography>
+                          )}
+                          {user.phone && (
+                            <Typography variant="body2">
+                              <strong>Teléfono: </strong> {user.phone}
+                            </Typography>
+                          )}
+                          {!user.cedula && !user.phone && (
+                            <Typography variant="body2">
+                              Sin información de contacto
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                      placement="top"
+                      arrow
+                      disableHoverListener={!user.cedula && !user.phone}
+                    >
+                      <Typography 
+                        variant="h6" 
+                        fontWeight="medium" 
+                        sx={{ 
+                          mb: 0.5,
+                          cursor: (user.cedula || user.phone) ? 'help' : 'default'
+                        }}
+                      >
+                        {user.firstName} {user.lastName}
+                      </Typography>
+                    </Tooltip>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {user.email}
                     </Typography>
@@ -975,9 +1007,38 @@ export const Users: React.FC = () => {
               {users.map((user) => (
                 <TableRow key={user._id || user.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {user.firstName} {user.lastName}
-                    </Typography>
+                    <Tooltip
+                      title={
+                        <Box>
+                          {user.cedula && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              <strong>Cédula:</strong> {user.cedula}
+                            </Typography>
+                          )}
+                          {user.phone && (
+                            <Typography variant="body2">
+                              <strong>Teléfono:</strong> {user.phone}
+                            </Typography>
+                          )}
+                          {!user.cedula && !user.phone && (
+                            <Typography variant="body2">
+                              Sin información de contacto
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                      placement="top"
+                      arrow
+                      disableHoverListener={!user.cedula && !user.phone}
+                    >
+                      <Typography 
+                        variant="body2" 
+                        fontWeight="medium"
+                        sx={{ cursor: (user.cedula || user.phone) ? 'help' : 'default' }}
+                      >
+                        {user.firstName} {user.lastName}
+                      </Typography>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>

@@ -46,6 +46,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import CompanyDepartments from './CompanyDepartments';
 import { CompanyVerifications } from '../../components/verifications/CompanyVerifications';
+import CompanyUsers from './CompanyUsers';
 
 export const CompanyDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -297,6 +298,13 @@ export const CompanyDetail: React.FC = () => {
               '& .MuiTab-iconWrapper': { display: 'none' }
             }}
           />
+          <Tab 
+            label="Usuarios"
+            sx={{ 
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              '& .MuiTab-iconWrapper': { display: 'none' }
+            }}
+          />
         </Tabs>
         
         {/* Tab Content */}
@@ -360,7 +368,7 @@ export const CompanyDetail: React.FC = () => {
                     Número de Empleados
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {company.employeeCount || 'No especificado'}
+                    {company.employeeCount || company.userCount || 'No especificado'}
                   </Typography>
                 </Box>
 
@@ -566,7 +574,7 @@ export const CompanyDetail: React.FC = () => {
                     Número de Empleados:
                   </Typography>
                   <Typography variant="body1" gutterBottom>
-                    {company.employeeCount || 'No especificado'}
+                    {company.employeeCount || company.userCount || 'No especificado'}
                   </Typography>
                 </Grid>
 
@@ -767,6 +775,11 @@ export const CompanyDetail: React.FC = () => {
       {/* Tab 3: Verificaciones */}
       {tabValue === 2 && (
         <CompanyVerifications companyId={company._id} companyName={company.name} />
+      )}
+
+      {/* Tab 4: Usuarios */}
+      {tabValue === 3 && (
+        <CompanyUsers companyId={company._id} companyName={company.name} />
       )}
         </Box>
       </Box>

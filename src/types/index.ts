@@ -171,6 +171,7 @@ export interface Company {
   website?: string;
   industry?: string;
   employeeCount?: number;
+  userCount?: number;
   contactPerson?: CompanyContactPerson;
   legalRepresentative?: CompanyLegalRepresentative;
   insuranceInfo?: CompanyInsuranceInfo;
