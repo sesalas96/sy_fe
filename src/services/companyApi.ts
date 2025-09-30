@@ -41,8 +41,8 @@ interface CompaniesListParams {
   search?: string;
   status?: string;
   industry?: string;
-  employeeCountMin?: number;
-  employeeCountMax?: number;
+  userCountMin?: number;
+  userCountMax?: number;
 }
 
 interface CompanyUsersParams {

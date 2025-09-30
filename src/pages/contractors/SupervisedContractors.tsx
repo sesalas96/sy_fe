@@ -713,9 +713,9 @@ export const SupervisedContractors: React.FC = () => {
                         {contractor.company.industry}
                       </Typography>
                     )}
-                    {contractor.company?.employeeCount && (
+                    {contractor.company?.userCount && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {contractor.company.employeeCount} empleados
+                        {contractor.company.userCount} empleados
                       </Typography>
                     )}
                   </Box>
@@ -936,9 +936,9 @@ export const SupervisedContractors: React.FC = () => {
                         <Typography variant="caption" color="text.secondary">
                           {contractor.company?.industry || ''}
                         </Typography>
-                        {contractor.company?.employeeCount && (
+                        {contractor.company?.userCount && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            {contractor.company.employeeCount} empleados
+                            {contractor.company.userCount} empleados
                           </Typography>
                         )}
                       </Box>

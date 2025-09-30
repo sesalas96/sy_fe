@@ -369,7 +369,7 @@ export const BulkSync: React.FC = () => {
                                   {company.name}
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
-                                  {company.industry} • {company.employeeCount} empleados
+                                  {company.industry} • {company.userCount} empleados
                                 </Typography>
                               </Box>
                             </Box>

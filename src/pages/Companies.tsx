@@ -555,7 +555,7 @@ export const Companies: React.FC = () => {
                 </TableCell>
                 <TableCell>{company.taxId}</TableCell>
                 <TableCell>{company.industry}</TableCell>
-                <TableCell>{company.employeeCount}</TableCell>
+                <TableCell>{company.userCount}</TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2">

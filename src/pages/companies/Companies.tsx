@@ -492,7 +492,7 @@ export const Companies: React.FC = () => {
                       Empleados
                     </Typography>
                     <Typography variant="body2">
-                      {company.employeeCount || 'N/A'}
+                      {company.userCount || 'N/A'}
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 6 }}>

@@ -368,7 +368,7 @@ export const CompanyDetail: React.FC = () => {
                     Número de Empleados
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {company.employeeCount || company.userCount || 'No especificado'}
+                    {company.userCount || company.userCount || 'No especificado'}
                   </Typography>
                 </Box>
 
@@ -574,7 +574,7 @@ export const CompanyDetail: React.FC = () => {
                     Número de Empleados:
                   </Typography>
                   <Typography variant="body1" gutterBottom>
-                    {company.employeeCount || company.userCount || 'No especificado'}
+                    {company.userCount || company.userCount || 'No especificado'}
                   </Typography>
                 </Grid>
 

@@ -11,8 +11,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Switch,
-  FormControlLabel,
   Chip,
   List,
   ListItem,
@@ -47,7 +45,7 @@ export const ClientSupervisorProfile: React.FC = () => {
   const companyInfo = {
     name: 'TechCorp S.A.',
     industry: 'Tecnología y Construcción',
-    employeeCount: 245,
+    userCount: 245,
     contractorsCount: 45,
     activeProjects: 8,
     complianceScore: 96.2
@@ -178,7 +176,7 @@ export const ClientSupervisorProfile: React.FC = () => {
                 <Grid size={{ xs: 6 }}>
                   <Box sx={{ textAlign: 'center', p: 2 }}>
                     <Typography variant="h4" color="primary">
-                      {companyInfo.employeeCount}
+                      {companyInfo.userCount}
                     </Typography>
                     <Typography variant="caption">
                       Empleados

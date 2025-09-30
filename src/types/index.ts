@@ -170,7 +170,6 @@ export interface Company {
   email: string;
   website?: string;
   industry?: string;
-  employeeCount?: number;
   userCount?: number;
   contactPerson?: CompanyContactPerson;
   legalRepresentative?: CompanyLegalRepresentative;
@@ -192,7 +191,7 @@ export interface CompanyFormData {
   email: string;
   website?: string;
   industry: string;
-  employeeCount?: number;
+  userCount?: number;
   contactPerson: CompanyContactPerson;
   legalRepresentative: CompanyLegalRepresentative;
   insuranceInfo?: CompanyInsuranceInfo;

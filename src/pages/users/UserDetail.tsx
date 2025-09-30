@@ -96,6 +96,8 @@ import { UserVerificationsPanel } from '../../components/verifications/UserVerif
 import { UserCompanyVerificationsManager } from '../../components/verifications/UserCompanyVerificationsManager';
 import { reviewsApi } from '../../services/reviewsApi';
 import { Review, ReviewSummary as ReviewSummaryType } from '../../types';
+import { ReviewList } from '../../components/reviews/ReviewList';
+import { ReviewSummary } from '../../components/reviews/ReviewSummary';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -1041,58 +1043,48 @@ export const UserDetail: React.FC = () => {
   // Handle navigation from users list to open evaluations tab
   useEffect(() => {
     if (location.state && (location.state as any).openEvaluationsTab && user && !loading) {
-      if (isContractor(user.role)) {
-        // For contractors, "Evaluaciones" is in the contractor-specific tabs
-        // Base tabs: ['Información General', 'Historial', 'Cursos', 'Documentos'] = 4 tabs
-        let evaluationTabIndex = 4;
-        
-        // Add 1 if "Verificarme" tab is present
-        if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
-          evaluationTabIndex += 1;
-        }
-        
-        // Add 1 if "Verificaciones de Empresa" tab is present
-        const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
-        if (canViewCompanyVerifications) {
-          evaluationTabIndex += 1;
-        }
-        
-        // For contractor roles, add 1 for "Verificación" tab before "Evaluaciones"
-        evaluationTabIndex += 1;
-        
-        // Set the tab to the evaluations tab
-        setTabValue(evaluationTabIndex);
-      } else {
-        // For non-contractors, the evaluation information might be in the general info tab
-        // or we might want to show it differently. For now, go to the general info tab
-        setTabValue(0);
+      // Calculate the correct tab index for "Evaluaciones"
+      // Base tabs: ['Información General'] = 0
+      let evaluationTabIndex = 0;
+      
+      // Add 1 if "Verificaciones de Empresa" tab is present (at index 1)
+      const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+      if (canViewCompanyVerifications) {
+        evaluationTabIndex = 1;
       }
+      
+      // Then we have: 'Cursos', 'Documentos', 'Historial', 'Evaluaciones'
+      // Evaluaciones is 4 positions after
+      evaluationTabIndex += 4;
+      
+      // Set the tab to the evaluations tab
+      setTabValue(evaluationTabIndex);
     }
-  }, [location.state, user, loading, hasRole, userHasPendingVerifications, currentUser]);
+  }, [location.state, user, loading, hasRole]);
 
   // Load reviews when evaluations tab is selected
   useEffect(() => {
-    if (user && isContractor(user.role)) {
+    if (user) {
       // Calculate evaluations tab index
-      let evaluationTabIndex = 4; // Base tabs
+      // Base tabs: ['Información General'] = 0
+      let evaluationTabIndex = 0;
       
-      if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
-        evaluationTabIndex += 1;
-      }
-      
+      // Add 1 if "Verificaciones de Empresa" tab is present (at index 1)
       const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
       if (canViewCompanyVerifications) {
-        evaluationTabIndex += 1;
+        evaluationTabIndex = 1;
       }
       
-      evaluationTabIndex += 1; // "Verificación" tab
+      // Then we have: 'Cursos', 'Documentos', 'Historial', 'Evaluaciones'
+      // Evaluaciones is 4 positions after the verification tab (or 4 after general info if no verification)
+      evaluationTabIndex += 4;
       
       if (tabValue === evaluationTabIndex && !reviewsLoaded && !reviewsLoading) {
         loadUserReviews();
         setReviewsLoaded(true);
       }
     }
-  }, [user, tabValue, isContractor, userHasPendingVerifications, currentUser, hasRole, reviewsLoaded, reviewsLoading, loadUserReviews]);
+  }, [user, tabValue, hasRole, reviewsLoaded, reviewsLoading, loadUserReviews]);
 
   // Reset reviews when user changes
   useEffect(() => {
@@ -1579,7 +1571,7 @@ export const UserDetail: React.FC = () => {
   }
   
   // Add the rest of the tabs
-  tabLabels.push('Cursos', 'Documentos', 'Historial');
+  tabLabels.push('Cursos', 'Documentos', 'Historial', 'Evaluaciones');
   
   // Agregar tab "Verificarme" si el usuario tiene verificaciones pendientes
   // y es el usuario viendo su propio perfil
@@ -1888,15 +1880,6 @@ export const UserDetail: React.FC = () => {
                   Información Laboral
                 </Typography>
                 <List>
-                  <ListItem>
-                    <ListItemIcon>
-                      <SecurityIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Rol"
-                      secondary={getRoleLabel(user.role)}
-                    />
-                  </ListItem>
                   {/* Show primary workspace from company field (legacy) */}
                   {user.company && !user.companies && (
                     <ListItem>
@@ -3141,9 +3124,44 @@ export const UserDetail: React.FC = () => {
         </Grid>
       </TabPanel>
 
+      {/* Tab Evaluaciones */}
+      <TabPanel value={tabValue} index={canViewCompanyVerifications ? 5 : 4}>
+        <Box>
+          {/* Review Summary */}
+          {reviewSummary && reviews.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <ReviewSummary
+                summary={reviewSummary}
+                loading={reviewsLoading}
+              />
+            </Box>
+          )}
+
+          {/* Reviews List */}
+          <ReviewList
+            reviews={reviews}
+            loading={reviewsLoading}
+            error={reviewsLoaded && reviews.length === 0 ? 'No hay evaluaciones para mostrar' : undefined}
+            showActions={false}
+          />
+
+          {/* Empty State */}
+          {!reviewsLoading && reviews.length === 0 && (
+            <Card sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                No hay evaluaciones disponibles para este usuario
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Las evaluaciones aparecerán aquí cuando otros usuarios evalúen el trabajo de este contratista
+              </Typography>
+            </Card>
+          )}
+        </Box>
+      </TabPanel>
+
       {/* Tab Verificarme - Solo visible para el usuario viendo su propio perfil */}
       {userHasPendingVerifications && currentUser && user && currentUser._id === user._id && (
-        <TabPanel value={tabValue} index={canViewCompanyVerifications ? 5 : 4}>
+        <TabPanel value={tabValue} index={canViewCompanyVerifications ? 6 : 5}>
           <UserVerificationsPanel userId={user._id} />
         </TabPanel>
       )}

@@ -527,7 +527,7 @@ export const CourseEnrollments: React.FC = () => {
                   </Typography>
                   
                   <Typography variant="body2" color="textSecondary" paragraph>
-                    {company.industry} • {company.employeeCount} empleados
+                    {company.industry} • {company.userCount} empleados
                   </Typography>
                   
                   {course.required_for_companies?.includes(company._id || company.id || '') ? (

@@ -35,7 +35,7 @@ export interface CompanyFilters {
   name?: string;
   industry?: string;
   status?: 'active' | 'inactive' | 'suspended';
-  employeeCountRange?: {
+  userCountRange?: {
     min?: number;
     max?: number;
   };
@@ -52,8 +52,8 @@ export class CompanyService {
       if (filters?.name) queryParams.append('name', filters.name);
       if (filters?.industry) queryParams.append('industry', filters.industry);
       if (filters?.status) queryParams.append('status', filters.status);
-      if (filters?.employeeCountRange?.min) queryParams.append('employeeCountMin', filters.employeeCountRange.min.toString());
-      if (filters?.employeeCountRange?.max) queryParams.append('employeeCountMax', filters.employeeCountRange.max.toString());
+      if (filters?.userCountRange?.min) queryParams.append('userCountMin', filters.userCountRange.min.toString());
+      if (filters?.userCountRange?.max) queryParams.append('userCountMax', filters.userCountRange.max.toString());
       
       const endpoint = `/api/companies${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await apiCall(endpoint);

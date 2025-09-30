@@ -87,7 +87,7 @@ export interface Contractor {
     _id: string;
     name: string;
     industry?: string;
-    employeeCount?: number;
+    userCount?: number;
     settings?: {
       notificationDays: number[];
       requiredCourses: {

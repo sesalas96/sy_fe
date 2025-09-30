@@ -160,10 +160,6 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
     <Box>
       {/* Header con búsqueda */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Usuarios de {companyName} ({users.length} total)
-        </Typography>
-        
         <TextField
           fullWidth
           size="small"
@@ -202,7 +198,7 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
                 </Box>
                 
                 <Grid container spacing={1}>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <EmailIcon fontSize="small" color="action" />
                       <Typography variant="body2">{user.email}</Typography>
@@ -210,7 +206,7 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
                   </Grid>
                   
                   {user.phone && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <PhoneIcon fontSize="small" color="action" />
                         <Typography variant="body2">{user.phone}</Typography>
@@ -219,7 +215,7 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
                   )}
                   
                   {user.cedula && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <BadgeIcon fontSize="small" color="action" />
                         <Typography variant="body2">{user.cedula}</Typography>
@@ -227,13 +223,13 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
                     </Grid>
                   )}
                   
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Typography variant="caption" color="text.secondary">Rol:</Typography>
                     <Typography variant="body2">{getRoleLabel(user.role)}</Typography>
                   </Grid>
                   
                   {user.departments.length > 0 && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Typography variant="caption" color="text.secondary">
                         Departamentos:
                       </Typography>

@@ -227,7 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           phone: response.user.company.phone,
           email: response.user.company.email,
           industry: 'Construction', // Default value
-          employeeCount: 0, // Default value
+          userCount: 0, // Default value
           isActive: response.user.company.isActive,
           contactPerson: {
             name: `${response.user.firstName} ${response.user.lastName}`.trim(),

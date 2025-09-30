@@ -54,7 +54,7 @@ export interface SupervisedContractor {
     _id: string;
     name: string;
     industry?: string;
-    employeeCount?: number;
+    userCount?: number;
   };
   certifications?: {
     name: string;

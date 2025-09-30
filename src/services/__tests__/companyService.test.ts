@@ -77,7 +77,7 @@ describe('CompanyService', () => {
         phone: '+1234567890',
         email: 'test@company.com',
         industry: 'Technology',
-        employeeCount: 50,
+        userCount: 50,
         contactPerson: {
           name: 'John Doe',
           position: 'CEO',
