@@ -10,8 +10,7 @@ import {
   Avatar,
   Button,
   Collapse,
-  Divider,
-  Badge
+  Divider
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -450,33 +449,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               onClick={() => handleNavigate('/profile')}
             >
-              <Badge 
-                badgeContent={pendingVerifications?.total || 0} 
-                color="error"
+              <Avatar
                 sx={{
-                  '& .MuiBadge-badge': {
-                    fontSize: '0.65rem',
-                    height: 16,
-                    minWidth: 16,
-                    right: -5,
-                    top: -5
-                  }
+                  width: 32,
+                  height: 32,
+                  mr: 1.5,
+                  bgcolor: userAvatarUrl ? 'transparent' : 'primary.main',
+                  fontSize: '0.75rem'
                 }}
-                invisible={!pendingVerifications || pendingVerifications.total === 0}
+                src={userAvatarUrl || undefined}
               >
-                <Avatar
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    mr: 1.5,
-                    bgcolor: userAvatarUrl ? 'transparent' : 'primary.main',
-                    fontSize: '0.75rem'
-                  }}
-                  src={userAvatarUrl || undefined}
-                >
-                  {!userAvatarUrl && getInitials(user.name)}
-                </Avatar>
-              </Badge>
+                {!userAvatarUrl && getInitials(user.name)}
+              </Avatar>
               <Box sx={{ flex: 1, minWidth: 0, ml: 0.5 }}>
                 <Typography
                   variant="body2"
