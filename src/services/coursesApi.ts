@@ -670,6 +670,93 @@ class CoursesApi {
       throw error;
     }
   }
+
+  async enrollToCourse(data: {
+    userId?: string;
+    courseId?: string;
+    userEmail?: string;
+    courseName?: string;
+    role?: 'learner' | 'instructor';
+  }) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/enroll-to-course`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(data)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al inscribir en el curso');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error enrolling to course:', error);
+      throw error;
+    }
+  }
+
+  async unenrollFromCourse(data: {
+    userId: string;
+    courseId: string;
+  }) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/unenroll-from-course`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(data)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al desinscribir del curso');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error unenrolling from course:', error);
+      throw error;
+    }
+  }
+
+  async goToCourse(data: {
+    userId: string;
+    courseId: string;
+    logoutRedirect?: string;
+    courseCompletedRedirect?: string;
+    headerHiddenOptions?: string;
+  }) {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api/talent-lms/goto-course`,
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(data)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al obtener URL del curso');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error getting course URL:', error);
+      throw error;
+    }
+  }
 }
 
 export const coursesApi = new CoursesApi();

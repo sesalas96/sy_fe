@@ -20,7 +20,11 @@ import {
   Tooltip,
   FormHelperText,
   InputAdornment,
-  IconButton
+  IconButton,
+  Snackbar,
+  Alert as MuiAlert,
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -28,15 +32,14 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon
+  VisibilityOff as VisibilityOffIcon,
+  RemoveCircleOutline as RemoveCircleOutlineIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { UserRole } from '../../types';
-import { userApi, UserFormData } from '../../services/userApi';
+import { UserRole, User } from '../../types';
+import { userApi, UserFormData, ApiResponse } from '../../services/userApi';
 import { companyApi } from '../../services/companyApi';
 import { DepartmentService, Department } from '../../services/departmentService';
-import { DepartmentUsersService } from '../../services/departmentUsersService';
-import { UserDepartmentSelection } from '../../components/UserDepartmentSelection';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import PhoneInput from 'react-phone-input-2';
@@ -59,13 +62,22 @@ export const UserForm: React.FC = () => {
   );
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([]);
-  const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [companyInputValue, setCompanyInputValue] = useState<Company | null>(null);
+  const [departmentsByCompany, setDepartmentsByCompany] = useState<Record<string, Department[]>>({});
+  const [loadingDepartments, setLoadingDepartments] = useState<Record<string, boolean>>({});
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
@@ -75,7 +87,9 @@ export const UserForm: React.FC = () => {
     phone: '',
     role: UserRole.CLIENT_STAFF,
     company: '',
-    isActive: true
+    isActive: true,
+    cedula: '',
+    companies: []
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -100,24 +114,28 @@ export const UserForm: React.FC = () => {
   };
 
   const loadDepartmentsByCompany = async (companyId: string) => {
-    if (!companyId) {
-      setDepartments([]);
-      setSelectedDepartmentIds([]);
-      return;
-    }
+    if (!companyId) return;
 
     try {
-      setLoadingDepartments(true);
+      setLoadingDepartments(prev => ({ ...prev, [companyId]: true }));
       const departmentsList = await DepartmentService.getDepartments({ 
         companyId,
         isActive: true 
       });
-      setDepartments(departmentsList);
+      // Store departments by company
+      setDepartmentsByCompany(prev => ({
+        ...prev,
+        [companyId]: departmentsList
+      }));
     } catch (err) {
       console.error('Error loading departments:', err);
-      setError('Error al cargar los departamentos');
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar los departamentos',
+        severity: 'error'
+      });
     } finally {
-      setLoadingDepartments(false);
+      setLoadingDepartments(prev => ({ ...prev, [companyId]: false }));
     }
   };
 
@@ -133,22 +151,69 @@ export const UserForm: React.FC = () => {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          phone: user.profile?.phone || '',
+          phone: user.phone || user.profile?.phone || '',
           role: user.role,
           company: user.company?._id || '',
-          isActive: user.isActive
+          isActive: user.isActive,
+          cedula: user.cedula || '',
+          companies: user.companies && user.companies.length > 0 
+            ? user.companies.map(uc => {
+                // Get departments for this company
+                const companyDepartments = user.departments
+                  ?.filter(dept => dept.company && dept.company._id === uc.companyId)
+                  ?.map(dept => dept._id) || [];
+                
+                return {
+                  companyId: uc.companyId || '',
+                  departments: companyDepartments,
+                  role: uc.role || user.role,
+                  isPrimary: uc.isPrimary || false,
+                  position: '',
+                  department: ''
+                };
+              })
+            : user.company?._id 
+              ? [{
+                  companyId: user.company._id,
+                  departments: user.departments
+                    ?.filter(dept => dept.company && dept.company._id === user.company?._id)
+                    ?.map(dept => dept._id) || [],
+                  role: user.role,
+                  isPrimary: true,
+                  position: '',
+                  department: ''
+                }]
+              : []
         });
         
         // Load departments for the user's company and existing assignments
         if (user.company?._id) {
           loadDepartmentsByCompany(user.company._id);
         }
+        
+        // Load departments for all user companies if they have multiple
+        if (user.companies && user.companies.length > 0) {
+          // Load departments for all companies
+          user.companies.forEach(uc => {
+            if (uc.companyId) {
+              loadDepartmentsByCompany(uc.companyId);
+            }
+          });
+        }
       } else {
-        setError(response.message || 'Error al cargar el usuario');
+        setSnackbar({
+          open: true,
+          message: response.message || 'Error al cargar el usuario',
+          severity: 'error'
+        });
       }
     } catch (err) {
-      setError('Error al cargar el usuario');
       console.error('Error loading user:', err);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar el usuario',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -165,10 +230,25 @@ export const UserForm: React.FC = () => {
 
     if (!formData.firstName.trim()) {
       errors.firstName = 'El nombre es requerido';
+    } else if (formData.firstName.trim().length < 2) {
+      errors.firstName = 'El nombre debe tener al menos 2 caracteres';
+    } else if (formData.firstName.trim().length > 50) {
+      errors.firstName = 'El nombre no puede tener más de 50 caracteres';
     }
 
     if (!formData.lastName.trim()) {
       errors.lastName = 'El apellido es requerido';
+    } else if (formData.lastName.trim().length < 2) {
+      errors.lastName = 'El apellido debe tener al menos 2 caracteres';
+    } else if (formData.lastName.trim().length > 50) {
+      errors.lastName = 'El apellido no puede tener más de 50 caracteres';
+    }
+
+    // Cédula validation - required for creation
+    if (!formData.cedula?.trim()) {
+      errors.cedula = 'La cédula es requerida';
+    } else if (!/^\d{9,12}$/.test(formData.cedula.trim())) {
+      errors.cedula = 'La cédula debe contener entre 9 y 12 dígitos';
     }
 
     if (!isEdit && !formData.password) {
@@ -203,6 +283,11 @@ export const UserForm: React.FC = () => {
       }
     }
 
+    // Validate companies assignment
+    if (!formData.companies || formData.companies.length === 0) {
+      errors.companies = 'Debe asignar al menos una empresa al usuario';
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -216,15 +301,15 @@ export const UserForm: React.FC = () => {
 
     try {
       setLoading(true);
-      setError('');
-      setSuccess('');
 
       const submitData: UserFormData = {
         ...formData,
-        ...(isEdit && !formData.password && { password: undefined })
+        ...(isEdit && !formData.password && { password: undefined }),
+        // If we have companies array, don't send the single company field
+        ...(formData.companies && formData.companies.length > 0 && { company: undefined })
       };
 
-      let response;
+      let response: ApiResponse<User>;
       if (isEdit && id) {
         response = await userApi.update(id, submitData);
       } else {
@@ -232,35 +317,146 @@ export const UserForm: React.FC = () => {
       }
 
       if (response.success) {
-        // If user was created/updated successfully and there are department assignments
-        if (selectedDepartmentIds.length > 0) {
-          try {
-            const userId = isEdit ? id : response.data?._id;
-            if (userId) {
-              // Assign user to selected departments
-              for (const departmentId of selectedDepartmentIds) {
-                await DepartmentUsersService.assignUsers(departmentId, {
-                  userIds: [userId]
-                });
+        setSnackbar({
+          open: true,
+          message: response.message || (isEdit ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente'),
+          severity: 'success'
+        });
+        setTimeout(() => {
+          navigate('/system-users');
+        }, 1500);
+      } else {
+        // Handle error response from the API using normalized structure
+        let errorMessage = response.error || response.message || 'Error al guardar el usuario';
+        
+        // Handle details - can be string or array of field errors
+        if (response.details) {
+          if (typeof response.details === 'string') {
+            errorMessage = `${errorMessage}. ${response.details}`;
+          } else if (Array.isArray(response.details)) {
+            // Process array of field errors
+            const fieldErrors: Record<string, string> = {};
+            const errorMessages: string[] = [];
+            
+            response.details.forEach((detail: any) => {
+              if (detail.field && detail.message) {
+                // Map English field names to Spanish labels
+                const fieldLabels: Record<string, string> = {
+                  firstName: 'Nombre',
+                  lastName: 'Apellido',
+                  email: 'Email',
+                  cedula: 'Cédula',
+                  phone: 'Teléfono',
+                  password: 'Contraseña'
+                };
+                
+                const fieldLabel = fieldLabels[detail.field] || detail.field;
+                
+                // Set validation error for the field
+                fieldErrors[detail.field] = typeof detail.message === 'string' ? detail.message : 'Error en este campo';
+                
+                // Add to error messages list
+                errorMessages.push(`${fieldLabel}: ${detail.message}`);
               }
+            });
+            
+            // Update validation errors
+            setValidationErrors(prev => ({
+              ...prev,
+              ...fieldErrors
+            }));
+            
+            // Add field errors to main message
+            if (errorMessages.length > 0) {
+              errorMessage = `${errorMessage}\n${errorMessages.join('\n')}`;
             }
-          } catch (err) {
-            console.error('Error assigning user to departments:', err);
-            setError('Usuario creado pero falló la asignación a departamentos');
-            return;
           }
         }
         
-        setSuccess(isEdit ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente');
-        setTimeout(() => {
-          navigate('/system-users');
-        }, 2000);
-      } else {
-        setError(response.message || 'Error al guardar el usuario');
+        // Also highlight single field with error if specified
+        if (response.field && typeof response.field === 'string') {
+          const errorText = typeof response.error === 'string' ? response.error : 'Error en este campo';
+          setValidationErrors(prev => ({
+            ...prev,
+            [response.field as string]: errorText
+          }));
+        }
+        
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error'
+        });
       }
-    } catch (err) {
-      setError(isEdit ? 'Error al actualizar el usuario' : 'Error al crear el usuario');
+    } catch (err: any) {
+      // Handle network or other errors
+      let errorMessage = 'Error de conexión. Por favor, verifique su conexión a internet.';
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        // Use normalized error structure from backend
+        errorMessage = errorData.error || errorData.message || 'Error al procesar la solicitud';
+        
+        // Handle details - can be string or array of field errors
+        if (errorData.details) {
+          if (typeof errorData.details === 'string') {
+            errorMessage = `${errorMessage}. ${errorData.details}`;
+          } else if (Array.isArray(errorData.details)) {
+            // Process array of field errors
+            const fieldErrors: Record<string, string> = {};
+            const errorMessages: string[] = [];
+            
+            errorData.details.forEach((detail: any) => {
+              if (detail.field && detail.message) {
+                // Map English field names to Spanish labels
+                const fieldLabels: Record<string, string> = {
+                  firstName: 'Nombre',
+                  lastName: 'Apellido',
+                  email: 'Email',
+                  cedula: 'Cédula',
+                  phone: 'Teléfono',
+                  password: 'Contraseña'
+                };
+                
+                const fieldLabel = fieldLabels[detail.field] || detail.field;
+                
+                // Set validation error for the field
+                fieldErrors[detail.field] = typeof detail.message === 'string' ? detail.message : 'Error en este campo';
+                
+                // Add to error messages list
+                errorMessages.push(`${fieldLabel}: ${detail.message}`);
+              }
+            });
+            
+            // Update validation errors
+            setValidationErrors(prev => ({
+              ...prev,
+              ...fieldErrors
+            }));
+            
+            // Add field errors to main message
+            if (errorMessages.length > 0) {
+              errorMessage = `${errorMessage}\n${errorMessages.join('\n')}`;
+            }
+          }
+        }
+        
+        // Also highlight single field with error if specified
+        if (errorData.field && typeof errorData.field === 'string') {
+          const errorText = typeof errorData.error === 'string' ? errorData.error : 'Error en este campo';
+          setValidationErrors(prev => ({
+            ...prev,
+            [errorData.field as string]: errorText
+          }));
+        }
+      }
+      
       console.error('Error saving user:', err);
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -357,21 +553,10 @@ export const UserForm: React.FC = () => {
         </Box>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
 
       <Card>
         <CardContent sx={{ p: 3 }}>
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box component="form" onSubmit={handleSubmit} autoComplete="off">
             <Grid container spacing={3}>
               {/* Información Personal */}
               <Grid size={{ xs: 12 }}>
@@ -387,8 +572,16 @@ export const UserForm: React.FC = () => {
                   value={formData.firstName}
                   onChange={handleInputChange('firstName')}
                   error={!!validationErrors.firstName}
-                  helperText={validationErrors.firstName}
+                  helperText={validationErrors.firstName || `${formData.firstName.length}/50 caracteres`}
                   required
+                  autoComplete="off"
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 50,
+                      minLength: 2,
+                      autoComplete: 'new-password'
+                    }
+                  }}
                 />
               </Grid>
 
@@ -399,8 +592,16 @@ export const UserForm: React.FC = () => {
                   value={formData.lastName}
                   onChange={handleInputChange('lastName')}
                   error={!!validationErrors.lastName}
-                  helperText={validationErrors.lastName}
+                  helperText={validationErrors.lastName || `${formData.lastName.length}/50 caracteres`}
                   required
+                  autoComplete="off"
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 50,
+                      minLength: 2,
+                      autoComplete: 'new-password'
+                    }
+                  }}
                 />
               </Grid>
 
@@ -414,6 +615,32 @@ export const UserForm: React.FC = () => {
                   error={!!validationErrors.email}
                   helperText={validationErrors.email}
                   required
+                  autoComplete="off"
+                  slotProps={{
+                    htmlInput: {
+                      autoComplete: 'new-password'
+                    }
+                  }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Cédula"
+                  value={formData.cedula}
+                  onChange={handleInputChange('cedula')}
+                  error={!!validationErrors.cedula}
+                  helperText={validationErrors.cedula || 'Número de identificación nacional (9-12 dígitos)'}
+                  required
+                  autoComplete="off"
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 12,
+                      pattern: '[0-9]*',
+                      autoComplete: 'new-password'
+                    }
+                  }}
                 />
               </Grid>
 
@@ -478,6 +705,7 @@ export const UserForm: React.FC = () => {
                   error={!!validationErrors.password}
                   helperText={validationErrors.password || (isEdit ? "Dejar vacío para mantener la actual" : "Mínimo 8 caracteres con 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial")}
                   required={!isEdit}
+                  autoComplete="new-password"
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -491,6 +719,9 @@ export const UserForm: React.FC = () => {
                           </IconButton>
                         </InputAdornment>
                       ),
+                    },
+                    htmlInput: {
+                      autoComplete: 'new-password'
                     }
                   }}
                 />
@@ -499,71 +730,251 @@ export const UserForm: React.FC = () => {
               {/* Información de Rol y Espacios de Trabajo */}
               <Grid size={{ xs: 12 }}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Rol y Espacios de Trabajo
+                  Espacios de Trabajo y Roles
                 </Typography>
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth required>
-                  <InputLabel>Rol</InputLabel>
-                  <Select
-                    value={formData.role}
-                    onChange={handleInputChange('role')}
-                    label="Rol"
-                  >
-                    {Object.values(UserRole).map((role) => (
-                      <MenuItem key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              {/* Only show global role selector when no companies are assigned */}
+              {(!formData.companies || formData.companies.length === 0) && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Rol por defecto</InputLabel>
+                    <Select
+                      value={formData.role}
+                      onChange={handleInputChange('role')}
+                      label="Rol por defecto"
+                    >
+                      {Object.values(UserRole).map((role) => (
+                        <MenuItem key={role} value={role}>
+                          {getRoleLabel(role)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <FormHelperText>
+                      Este rol se aplicará cuando se asigne una empresa
+                    </FormHelperText>
+                  </FormControl>
+                </Grid>
+              )}
+
+              {/* Multiple Companies Management */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ mt: 1 }}>
+                  Asignación de Empresas
+                </Typography>
+                
+                {/* Company assignments list */}
+                {formData.companies && formData.companies.length > 0 ? (
+                  <Box sx={{ mb: 2 }}>
+                    {formData.companies.map((companyAssignment, index) => {
+                      const company = companies.find(c => c._id === companyAssignment.companyId);
+                      return (
+                        <Card key={index} sx={{ mb: 1, p: 2, backgroundColor: 'background.paper' }}>
+                          <Box>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body1" fontWeight="medium">
+                                  {company?.name || 'Empresa no encontrada'}
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+                                  {companyAssignment.isPrimary && (
+                                    <Chip
+                                      size="small"
+                                      label="Principal"
+                                      color="success"
+                                    />
+                                  )}
+                                </Box>
+                              </Box>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                {!companyAssignment.isPrimary && formData.companies && formData.companies.length > 1 && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        companies: prev.companies?.map((c, i) => ({
+                                          ...c,
+                                          isPrimary: i === index
+                                        }))
+                                      }));
+                                    }}
+                                  >
+                                    Hacer Principal
+                                  </Button>
+                                )}
+                                <IconButton
+                                  color="error"
+                                  onClick={() => {
+                                    setFormData(prev => {
+                                      const updatedCompanies = prev.companies?.filter((_, i) => i !== index) || [];
+                                      // If we removed the primary company and there are still companies, make the first one primary
+                                      if (companyAssignment.isPrimary && updatedCompanies.length > 0) {
+                                        updatedCompanies[0].isPrimary = true;
+                                      }
+                                      return {
+                                        ...prev,
+                                        companies: updatedCompanies
+                                      };
+                                    });
+                                  }}
+                                >
+                                  <RemoveCircleOutlineIcon />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                            {/* Role selector for this company */}
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Rol en esta empresa</InputLabel>
+                              <Select
+                                value={companyAssignment.role || formData.role}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    companies: prev.companies?.map((c, i) => 
+                                      i === index ? { ...c, role: e.target.value as UserRole } : c
+                                    )
+                                  }));
+                                }}
+                                label="Rol en esta empresa"
+                              >
+                                {Object.values(UserRole).map((role) => (
+                                  <MenuItem key={role} value={role}>
+                                    {getRoleLabel(role)}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            
+                            {/* Department selection for this company */}
+                            {departmentsByCompany[companyAssignment.companyId] && departmentsByCompany[companyAssignment.companyId].length > 0 && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Departamentos
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {departmentsByCompany[companyAssignment.companyId].map(dept => {
+                                    const isSelected = companyAssignment.departments?.includes(dept._id);
+                                    return (
+                                      <Chip
+                                        key={dept._id}
+                                        label={dept.name}
+                                        onClick={() => {
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            companies: prev.companies?.map((c, i) => {
+                                              if (i === index) {
+                                                const currentDepts = c.departments || [];
+                                                return {
+                                                  ...c,
+                                                  departments: isSelected 
+                                                    ? currentDepts.filter(d => d !== dept._id)
+                                                    : [...currentDepts, dept._id]
+                                                };
+                                              }
+                                              return c;
+                                            })
+                                          }));
+                                        }}
+                                        color={isSelected ? "primary" : "default"}
+                                        variant={isSelected ? "filled" : "outlined"}
+                                        size="small"
+                                      />
+                                    );
+                                  })}
+                                </Box>
+                              </Box>
+                            )}
+                            {!departmentsByCompany[companyAssignment.companyId] && loadingDepartments[companyAssignment.companyId] && (
+                              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  Cargando departamentos...
+                                </Typography>
+                                <CircularProgress size={16} />
+                              </Box>
+                            )}
+                            {!departmentsByCompany[companyAssignment.companyId] && !loadingDepartments[companyAssignment.companyId] && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  No hay departamentos disponibles
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        </Card>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    No hay empresas asignadas al usuario.
+                  </Alert>
+                )}
+                
+                {/* Add company selector */}
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                  <Autocomplete
+                    sx={{ flex: 1 }}
+                    options={companies.filter(c => 
+                      !formData.companies?.some(ca => ca.companyId === c._id)
+                    )}
+                    getOptionLabel={(option) => option.name}
+                    value={companyInputValue}
+                    onChange={(_, newValue) => {
+                      if (newValue) {
+                        const isFirst = !formData.companies || formData.companies.length === 0;
+                        setFormData(prev => ({
+                          ...prev,
+                          companies: [
+                            ...(prev.companies || []),
+                            {
+                              companyId: newValue._id,
+                              departments: [],
+                              role: prev.role,
+                              isPrimary: isFirst,
+                              position: '',
+                              department: ''
+                            }
+                          ]
+                        }));
+                        // Clear companies validation error
+                        if (validationErrors.companies) {
+                          setValidationErrors(prev => ({
+                            ...prev,
+                            companies: ''
+                          }));
+                        }
+                        // Load departments for this company
+                        loadDepartmentsByCompany(newValue._id);
+                        // Clear the input
+                        setCompanyInputValue(null);
+                      }
+                    }}
+                    inputValue=""
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Agregar Empresa"
+                        placeholder="Seleccionar empresa"
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Typography variant="body2">
+                          {option.name}
+                        </Typography>
+                      </Box>
+                    )}
+                  />
+                </Box>
+                {validationErrors.companies && (
+                  <FormHelperText error sx={{ mt: 1 }}>
+                    {validationErrors.companies}
+                  </FormHelperText>
+                )}
               </Grid>
 
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Autocomplete
-                  options={companies}
-                  getOptionLabel={(option) => option.name}
-                  value={companies.find(c => c._id === formData.company) || null}
-                  onChange={(_, newValue) => {
-                    const companyId = newValue?._id || '';
-                    setFormData(prev => ({
-                      ...prev,
-                      company: companyId
-                    }));
-                    // Load departments when company is selected
-                    if (companyId) {
-                      loadDepartmentsByCompany(companyId);
-                    } else {
-                      setDepartments([]);
-                      setSelectedDepartmentIds([]);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Espacios de Trabajo"
-                      placeholder="Seleccionar empresa"
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props}>
-                      <Typography variant="body2">
-                        {option.name}
-                      </Typography>
-                    </Box>
-                  )}
-                />
-              </Grid>
-
-              {/* Asignación de Departamentos */}
-              <UserDepartmentSelection
-                company={formData.company}
-                departments={departments}
-                selectedDepartmentIds={selectedDepartmentIds}
-                setSelectedDepartmentIds={setSelectedDepartmentIds}
-                loadingDepartments={loadingDepartments}
-              />
 
               {/* Estado */}
               {isEdit && (
@@ -623,6 +1034,24 @@ export const UserForm: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MuiAlert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+          variant="filled"
+          elevation={6}
+        >
+          {snackbar.message}
+        </MuiAlert>
+      </Snackbar>
     </Box>
   );
 };

@@ -9,8 +9,17 @@ export interface UserFormData {
   lastName: string;
   phone?: string;
   role: UserRole;
-  company?: string;
+  company?: string; // Para compatibilidad hacia atrás
   isActive?: boolean;
+  cedula?: string;
+  companies?: Array<{
+    companyId: string;
+    departments?: string[];
+    role?: UserRole;
+    isPrimary: boolean;
+    position?: string;
+    department?: string;
+  }>;
 }
 
 export interface UserProfileData {
@@ -97,6 +106,14 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
+  status?: number;
+  error?: string;
+  details?: string | Array<{
+    field: string;
+    message: string;
+    value?: any;
+  }>;
+  field?: string;
   pagination?: {
     page: number;
     limit: number;
@@ -188,11 +205,19 @@ class UserApiService {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || 'Error al crear usuario');
+        return {
+          success: false,
+          status: response.status,
+          message: result.message || 'Error al crear usuario',
+          error: result.error || result.message || 'Error al crear usuario',
+          details: result.details,
+          field: result.field
+        };
       }
 
       return {
         success: true,
+        status: response.status,
         data: result.data || result.user || result,
         message: result.message || 'Usuario creado exitosamente'
       };
@@ -200,7 +225,8 @@ class UserApiService {
       console.error('Error creating user:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Error al crear usuario'
+        message: error instanceof Error ? error.message : 'Error al crear usuario',
+        error: error instanceof Error ? error.message : 'Error al crear usuario'
       };
     }
   }
@@ -216,11 +242,19 @@ class UserApiService {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || 'Error al actualizar usuario');
+        return {
+          success: false,
+          status: response.status,
+          message: result.message || 'Error al actualizar usuario',
+          error: result.error || result.message || 'Error al actualizar usuario',
+          details: result.details,
+          field: result.field
+        };
       }
 
       return {
         success: true,
+        status: response.status,
         data: result.data || result.user || result,
         message: result.message || 'Usuario actualizado exitosamente'
       };
@@ -228,7 +262,8 @@ class UserApiService {
       console.error('Error updating user:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Error al actualizar usuario'
+        message: error instanceof Error ? error.message : 'Error al actualizar usuario',
+        error: error instanceof Error ? error.message : 'Error al actualizar usuario'
       };
     }
   }

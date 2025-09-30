@@ -36,7 +36,6 @@ import {
   Divider,
   useTheme,
   useMediaQuery,
-  Avatar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -335,9 +334,9 @@ export const Users: React.FC = () => {
   };
 
   const handleViewVerifications = (user: User) => {
-    // Navigate to user details with a state indicating to open the verifications tab
+    // Navigate to user details with a state indicating to open the company verifications tab
     navigate(`/users/${user._id || user.id}`, { 
-      state: { openVerificationsTab: true } 
+      state: { openCompanyVerificationsTab: true } 
     });
   };
 
@@ -548,17 +547,7 @@ export const Users: React.FC = () => {
     return hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF]);
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
-  };
 
-  const isContractor = (role: UserRole) => {
-    return [
-      UserRole.CONTRATISTA_ADMIN,
-      UserRole.CONTRATISTA_SUBALTERNOS,
-      UserRole.CONTRATISTA_HUERFANO
-    ].includes(role);
-  };
 
   const getVerificationStatus = (user: User) => {
     // Use real data from verificationSummary
@@ -584,25 +573,6 @@ export const Users: React.FC = () => {
     return null;
   };
 
-  const handleVerifyContractor = useCallback((user: User) => {
-    setSelectedContractor(user);
-    // Obtener estado actual de verificación del usuario (mock por ahora)
-    const currentStatus = getVerificationStatus(user);
-    setVerificationStatus(currentStatus.status as any);
-    setVerificationDialogOpen(true);
-  }, []);
-
-  const handleEvaluateContractor = useCallback((user: User) => {
-    setSelectedContractor(user);
-    // Resetear puntuaciones para nueva evaluación
-    setEvaluationScores({
-      safety: 0,
-      quality: 0,
-      timeliness: 0,
-      communication: 0
-    });
-    setEvaluationDialogOpen(true);
-  }, []);
 
   // Handlers optimizados para los diálogos
   const handleVerificationStatusChange = useCallback((e: any) => {
@@ -932,34 +902,15 @@ export const Users: React.FC = () => {
             <Card key={user._id || user.id} sx={{ position: 'relative' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                    <Avatar
-                      sx={{ 
-                        width: 48, 
-                        height: 48, 
-                        mr: 2, 
-                        bgcolor: 'primary.main',
-                        fontSize: '1rem'
-                      }}
-                    >
-                      {getInitials(user.firstName, user.lastName)}
-                    </Avatar>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" fontWeight="medium" sx={{ mb: 0.5 }}>
-                        {user.firstName} {user.lastName}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {user.email}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Chip
-                          label={getRoleLabel(user.role)}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                        />
-                        {getStatusChip(user)}
-                      </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6" fontWeight="medium" sx={{ mb: 0.5 }}>
+                      {user.firstName} {user.lastName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {user.email}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {getStatusChip(user)}
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'column' }}>
@@ -998,13 +949,50 @@ export const Users: React.FC = () => {
                 </Box>
                 
                 <Grid container spacing={1} sx={{ fontSize: '0.875rem' }}>
-                  <Grid size={{ xs: 6 }}>
+                  <Grid size={{ xs: 12 }}>
                     <Typography variant="caption" color="text.secondary">
                       Espacios de Trabajo
                     </Typography>
-                    <Typography variant="body2">
-                      {user.company?.name || 'Sin empresa'}
-                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                      {user.companies && user.companies.length > 0 ? (
+                        user.companies.length > 1 ? (
+                          <Box 
+                            sx={{ 
+                              p: 0.5,
+                              borderRadius: 0.5,
+                              bgcolor: 'action.hover'
+                            }}
+                          >
+                            <Typography variant="body2" fontWeight="medium">
+                              {user.companies.length} espacios
+                            </Typography>
+                          </Box>
+                        ) : (
+                          user.companies.map((company) => {
+                            return (
+                              <Box 
+                                key={company.companyId}
+                                sx={{ 
+                                  p: 0.5,
+                                  borderRadius: 0.5,
+                                  bgcolor: 'action.hover'
+                                }}
+                              >
+                                <Typography variant="body2" fontWeight="medium">
+                                  {company.companyName}
+                                </Typography>
+                              </Box>
+                            );
+                          })
+                        )
+                      ) : (
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {user.company?.name || 'Sin empresa'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                   </Grid>
                   <Grid size={{ xs: 6 }}>
                     <Typography variant="caption" color="text.secondary">
@@ -1115,7 +1103,6 @@ export const Users: React.FC = () => {
               <TableRow>
                 <TableCell>Usuario</TableCell>
                 <TableCell>Email</TableCell>
-                <TableCell>Rol</TableCell>
                 <TableCell>Espacios de Trabajo</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="center">Verificación</TableCell>
@@ -1127,33 +1114,140 @@ export const Users: React.FC = () => {
               {users.map((user) => (
                 <TableRow key={user._id || user.id} hover>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar
-                        sx={{ 
-                          width: 40, 
-                          height: 40, 
-                          mr: 2, 
-                          bgcolor: 'primary.main',
-                          fontSize: '0.875rem'
-                        }}
-                      >
-                        {getInitials(user.firstName, user.lastName)}
-                      </Avatar>
-                      <Typography variant="body2" fontWeight="medium">
-                        {user.firstName} {user.lastName}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {user.firstName} {user.lastName}
+                    </Typography>
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Chip
-                      label={getRoleLabel(user.role)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {user.company?.name || 'Sin empresa'}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {user.companies && user.companies.length > 0 ? (
+                        user.companies.length > 1 ? (
+                          <Tooltip
+                            title={
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'white' }}>
+                                  Empresas ({user.companies.length}):
+                                </Typography>
+                                {user.companies.map((company) => {
+                                  const companyDepts = user.departments?.filter(
+                                    dept => dept.company?._id === company.companyId
+                                  ) || [];
+                                  
+                                  return (
+                                    <Box key={company.companyId} sx={{ mb: 1.5 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'black' }}>
+                                        • {company.companyName}
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ ml: 2, color: 'white', fontSize: '0.875rem' }}>
+                                        Rol: {getRoleLabel(company.role as UserRole)}
+                                      </Typography>
+                                      {companyDepts.length > 0 && (
+                                        <Box sx={{ ml: 2 }}>
+                                          <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 'bold', mt: 0.5, color: 'white' }}>
+                                            Departamentos:
+                                          </Typography>
+                                          {companyDepts.map((dept) => (
+                                            <Typography key={dept._id} variant="body2" sx={{ fontSize: '0.875rem', ml: 1, color: 'white' }}>
+                                              - {dept.name}
+                                            </Typography>
+                                          ))}
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            }
+                            placement="top"
+                            arrow
+                          >
+                            <Box sx={{ 
+                              cursor: 'help',
+                              p: 0.5,
+                              borderRadius: 0.5,
+                              '&:hover': { bgcolor: 'action.hover' }
+                            }}>
+                              <Typography variant="body2" fontWeight="medium">
+                                {user.companies.length} espacios
+                              </Typography>
+                            </Box>
+                          </Tooltip>
+                        ) : (
+                          user.companies.map((company) => {
+                            // Obtener departamentos de esta empresa específica
+                            const companyDepts = user.departments?.filter(
+                              dept => dept.company?._id === company.companyId
+                            ) || [];
+                            
+                            return (
+                              <Tooltip
+                                key={company.companyId}
+                                title={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: 'white' }}>
+                                      Rol: {getRoleLabel(company.role as UserRole)}
+                                    </Typography>
+                                    {companyDepts.length > 0 ? (
+                                      <>
+                                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, mt: 1, color: 'white' }}>
+                                          Departamentos:
+                                        </Typography>
+                                        {companyDepts.map((dept) => (
+                                          <Typography key={dept._id} variant="body2" sx={{ mb: 0.5, color: 'white' }}>
+                                            • {dept.name}
+                                          </Typography>
+                                        ))}
+                                      </>
+                                    ) : (
+                                      <Typography variant="body2" sx={{ mt: 1, color: 'white' }}>
+                                        Sin departamentos asignados
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                }
+                                placement="top"
+                                arrow
+                              >
+                                <Box sx={{ 
+                                  cursor: 'help',
+                                  p: 0.5,
+                                  borderRadius: 0.5,
+                                  '&:hover': { bgcolor: 'action.hover' }
+                                }}>
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {company.companyName}
+                                  </Typography>
+                                </Box>
+                              </Tooltip>
+                            );
+                          })
+                        )
+                      ) : (
+                        <Tooltip
+                          title={
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                Rol: {getRoleLabel(user.role)}
+                              </Typography>
+                            </Box>
+                          }
+                          placement="top"
+                          arrow
+                        >
+                          <Box sx={{ 
+                            cursor: 'help',
+                            p: 0.5,
+                            borderRadius: 0.5,
+                            '&:hover': { bgcolor: 'action.hover' }
+                          }}>
+                            <Typography variant="body2" fontWeight="medium">
+                              {user.company?.name || 'Sin empresa'}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                   <TableCell>{getStatusChip(user)}</TableCell>
                   {/* Verificación Column */}
