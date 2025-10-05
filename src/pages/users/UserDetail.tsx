@@ -204,7 +204,6 @@ export const UserDetail: React.FC = () => {
   const [courseTabValue, setCourseTabValue] = useState(0);
   const [userCourses, setUserCourses] = useState<any>(null);
   const [talentLMSUser, setTalentLMSUser] = useState<any>(null);
-  const [checkingTalentLMS, setCheckingTalentLMS] = useState(false);
   const [signingUpToTalentLMS, setSigningUpToTalentLMS] = useState(false);
   
   // Estados para documentos
@@ -322,12 +321,6 @@ export const UserDetail: React.FC = () => {
 
   const loadContractorDataFromAPI = useCallback(async (userId: string) => {
     try {
-      // Cargar certificaciones
-      const certificationsResponse = await contractorApi.getCertifications(userId);
-      if (certificationsResponse.success && certificationsResponse.data) {
-        setCertifications(certificationsResponse.data);
-      }
-
       // El historial de acceso se cargará mediante el useEffect cuando se actualice el user
     } catch (error) {
       console.error('Error loading contractor data:', error);
@@ -460,8 +453,70 @@ export const UserDetail: React.FC = () => {
     return hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF]);
   };
 
+  // Mapeo de hash a nombre de tab
+  const getTabHash = (tabIndex: number): string => {
+    const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+    const hashMap: { [key: number]: string } = {
+      0: 'general',
+    };
+
+    let currentIndex = 1;
+
+    if (canViewCompanyVerifications) {
+      hashMap[currentIndex] = 'company-verifications';
+      currentIndex++;
+    }
+
+    hashMap[currentIndex] = 'courses';
+    currentIndex++;
+    hashMap[currentIndex] = 'documents';
+    currentIndex++;
+    hashMap[currentIndex] = 'history';
+    currentIndex++;
+    hashMap[currentIndex] = 'reviews';
+    currentIndex++;
+
+    if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+      hashMap[currentIndex] = 'verify-me';
+    }
+
+    return hashMap[tabIndex] || 'general';
+  };
+
+  const getTabIndexFromHash = (hash: string): number => {
+    const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
+    const indexMap: { [key: string]: number } = {
+      'general': 0,
+    };
+
+    let currentIndex = 1;
+
+    if (canViewCompanyVerifications) {
+      indexMap['company-verifications'] = currentIndex;
+      currentIndex++;
+    }
+
+    indexMap['courses'] = currentIndex;
+    currentIndex++;
+    indexMap['documents'] = currentIndex;
+    currentIndex++;
+    indexMap['history'] = currentIndex;
+    currentIndex++;
+    indexMap['reviews'] = currentIndex;
+    currentIndex++;
+
+    if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
+      indexMap['verify-me'] = currentIndex;
+    }
+
+    return indexMap[hash] !== undefined ? indexMap[hash] : 0;
+  };
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    // Actualizar el hash en la URL
+    const hash = getTabHash(newValue);
+    navigate(`#${hash}`, { replace: true });
   };
 
 
@@ -789,13 +844,22 @@ export const UserDetail: React.FC = () => {
   const checkTalentLMSUser = useCallback(async () => {
     if (!user?.email) return;
 
-    setCheckingTalentLMS(true);
     try {
       const response = await coursesApi.searchTalentLMSUser({ email: user.email });
       console.log('TalentLMS search response:', response);
       if (response.success && response.data) {
         console.log('TalentLMS user found:', response.data);
-        setTalentLMSUser(response.data);
+        // searchTalentLMSUser puede devolver un objeto o un array
+        const userData = Array.isArray(response.data) ? response.data[0] : response.data;
+
+        if (userData) {
+          // La respuesta de searchTalentLMSUser ya incluye los cursos
+          // No necesitamos hacer otra llamada
+          setTalentLMSUser(userData);
+          console.log('TalentLMS user set with courses:', userData.courses?.length || 0);
+        } else {
+          setTalentLMSUser(null);
+        }
       } else {
         console.log('TalentLMS user not found');
         setTalentLMSUser(null);
@@ -803,8 +867,6 @@ export const UserDetail: React.FC = () => {
     } catch (error) {
       console.error('Error checking TalentLMS user:', error);
       setTalentLMSUser(null);
-    } finally {
-      setCheckingTalentLMS(false);
     }
   }, [user?.email]);
 
@@ -815,15 +877,8 @@ export const UserDetail: React.FC = () => {
     setCoursesLoading(true);
     
     try {
-      // Para todos los usuarios, cargar progreso de TalentLMS
-      try {
-        const talentProgress = await coursesApi.getUserTalentLMSProgress(userId);
-        setTalentLMSProgress(talentProgress);
-      } catch (error) {
-        console.error('Error loading TalentLMS progress:', error);
-        // If user is not in TalentLMS yet, it's ok
-      }
-      
+      // TalentLMS progress will be loaded separately if needed
+
       // Cargar cursos del usuario (iniciales y adicionales)
       try {
         const userCoursesResponse = await coursesApi.getUserCourses(userId);
@@ -975,6 +1030,25 @@ export const UserDetail: React.FC = () => {
   useEffect(() => {
     loadUserData();
   }, [id, loadUserData]);
+
+  // Manejar el hash de la URL para navegación de tabs
+  useEffect(() => {
+    const hash = location.hash.replace('#', '');
+    if (hash && user) {
+      const tabIndex = getTabIndexFromHash(hash);
+      if (tabIndex !== tabValue) {
+        setTabValue(tabIndex);
+      }
+    }
+  }, [location.hash, user, userHasPendingVerifications, currentUser]);
+
+  // Establecer el hash inicial si no existe
+  useEffect(() => {
+    if (!location.hash && user) {
+      const hash = getTabHash(tabValue);
+      navigate(`#${hash}`, { replace: true });
+    }
+  }, [user]);
 
   // Cleanup avatar URL on unmount
   useEffect(() => {
@@ -1140,9 +1214,26 @@ export const UserDetail: React.FC = () => {
 
   const handleSignupToTalentLMS = async () => {
     if (!user) return;
-    
+
     setSigningUpToTalentLMS(true);
     try {
+      // First, try to search for the user in TalentLMS by email
+      console.log('Searching for user in TalentLMS:', user.email);
+      const searchResponse = await coursesApi.searchTalentLMSUser({ email: user.email });
+
+      if (searchResponse.success && searchResponse.data) {
+        // User already exists in TalentLMS
+        console.log('User found in TalentLMS:', searchResponse.data);
+        setTalentLMSUser(searchResponse.data);
+        setSnackbar({
+          open: true,
+          message: 'Usuario ya está registrado en TalentLMS',
+          severity: 'info'
+        });
+        return;
+      }
+
+      // User doesn't exist, proceed with signup
       const userData = {
         firstName: user.firstName,
         lastName: user.lastName,
@@ -1158,7 +1249,7 @@ export const UserDetail: React.FC = () => {
           custom_field_2: String(user.role) || 'N/A'
         }
       };
-      
+
       const response = await coursesApi.signupTalentLMSUser(userData);
       if (response.success) {
         setSnackbar({
@@ -1393,10 +1484,13 @@ export const UserDetail: React.FC = () => {
           message: response.message || 'Inscripción exitosa',
           severity: 'success'
         });
-        
+
         // Recargar el progreso del curso y la información del usuario en TalentLMS
         await loadCourseProgress();
         await checkTalentLMSUser();
+
+        // Cambiar al tab "Cursos del usuario" (index 1) para ver el curso inscrito
+        setCourseTabValue(1);
       } else {
         setSnackbar({
           open: true,
@@ -1454,6 +1548,48 @@ export const UserDetail: React.FC = () => {
         severity: 'error'
       });
     }
+  };
+
+  // Función para filtrar cursos disponibles (excluir los ya inscritos)
+  const getFilteredAvailableCourses = () => {
+    if (!availableCourses || availableCourses.length === 0) return [];
+
+    // Obtener IDs de todos los cursos que el usuario ya tiene
+    const enrolledCourseIds = new Set<string>();
+
+    // Agregar cursos de TalentLMS
+    if (talentLMSUser?.courses) {
+      talentLMSUser.courses.forEach((course: any) => {
+        enrolledCourseIds.add(String(course.id));
+      });
+    }
+
+    // Agregar cursos iniciales
+    if (userCourses?.initial) {
+      userCourses.initial.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Agregar cursos adicionales
+    if (userCourses?.additional) {
+      userCourses.additional.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Agregar enrollments
+    if (userCourses?.enrollments) {
+      userCourses.enrollments.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Filtrar cursos disponibles excluyendo los ya inscritos
+    return availableCourses.filter(course => !enrolledCourseIds.has(String(course.id)));
   };
 
   const handleGoToCourse = async (courseId: string) => {
@@ -2391,7 +2527,14 @@ export const UserDetail: React.FC = () => {
                     >
                       <Tab label="Información General" />
                       <Tab
-                        label={`Cursos del usuario ${userCourses ? `(${(userCourses.initial?.length || 0) + (userCourses.additional?.length || 0) + (userCourses.enrollments?.length || 0)})` : '(0)'}`}
+                        label={`Cursos del usuario ${(() => {
+                          const initialCount = userCourses?.initial?.length || 0;
+                          const additionalCount = userCourses?.additional?.length || 0;
+                          const enrollmentsCount = userCourses?.enrollments?.length || 0;
+                          const talentLMSCount = talentLMSUser?.courses?.length || 0;
+                          const total = initialCount + additionalCount + enrollmentsCount + talentLMSCount;
+                          return `(${total})`;
+                        })()}`}
                         disabled={!talentLMSUser}
                         sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
                       />
@@ -2405,13 +2548,9 @@ export const UserDetail: React.FC = () => {
                 )}
 
                 {/* Tab Panel 0: Información General */}
-                {courseTabValue === 0 && (
+                {courseTabValue === 0 && !coursesLoading && (
                   <Box>
-                    {checkingTalentLMS ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                        <CircularProgress />
-                      </Box>
-                    ) : talentLMSUser ? (
+                    {talentLMSUser ? (
                       <Card>
                         <CardContent>
                           <Typography variant="h6" gutterBottom>
@@ -2631,11 +2770,6 @@ export const UserDetail: React.FC = () => {
                         {/* Cursos Inscritos en TalentLMS - Detallado */}
                         {talentLMSUser && talentLMSUser.courses && talentLMSUser.courses.length > 0 && (
                           <>
-                            <Divider sx={{ my: 3 }} />
-                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <SchoolIcon color="info" />
-                              Cursos Inscritos en TalentLMS ({talentLMSUser.courses.length})
-                            </Typography>
                             <Stack spacing={2}>
                               {talentLMSUser.courses.map((course: any) => (
                                 <Card key={course.id} variant="outlined" sx={{ 
@@ -3443,21 +3577,12 @@ export const UserDetail: React.FC = () => {
           <Button onClick={() => setCertificationDialogOpen(false)}>
             Cancelar
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={async () => {
               try {
                 // TODO: Implementar lógica para guardar la certificación
-                // await contractorApi.addCertification(userId, newCertification);
-                
-                // Recargar certificaciones
-                if (user?._id || user?.id) {
-                  const userId = user._id || user.id || '';
-                  const certificationsResponse = await contractorApi.getCertifications(userId);
-                  if (certificationsResponse.success) {
-                    setCertifications(certificationsResponse.data);
-                  }
-                }
+
                 setCertificationDialogOpen(false);
                 setNewCertification({
                   type: '',

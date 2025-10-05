@@ -5,6 +5,16 @@ import { trackingService } from '../services/trackingService';
 import { fileService } from '../services/fileService';
 import { userVerificationsApi, UserCompanyVerifications } from '../services/userVerificationsApi';
 import { PendingVerificationsCount, calculatePendingVerifications } from '../utils/verificationUtils';
+import { coursesApi } from '../services/coursesApi';
+
+interface TalentLMSUserData {
+  id: string;
+  login: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  courses?: any[];
+}
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +35,10 @@ interface AuthContextType {
   // Pending verifications
   pendingVerifications: PendingVerificationsCount | null;
   refreshPendingVerifications: () => Promise<void>;
+  // TalentLMS
+  talentLMSUser: TalentLMSUserData | null;
+  talentLMSCourses: any[] | null;
+  refreshTalentLMSData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +63,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [originalAdmin, setOriginalAdmin] = useState<{ id: string; email: string } | null>(null);
   const [pendingVerifications, setPendingVerifications] = useState<PendingVerificationsCount | null>(null);
+  const [talentLMSUser, setTalentLMSUser] = useState<TalentLMSUserData | null>(null);
+  const [talentLMSCourses, setTalentLMSCourses] = useState<any[] | null>(null);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -74,6 +90,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             loadUserAvatar(restoredUser);
             // Load pending verifications
             loadPendingVerifications(restoredUser);
+            // Load TalentLMS data
+            loadTalentLMSData(restoredUser);
           } catch (error) {
             // Token is invalid or expired, clear everything
             console.warn('Token validation failed, clearing session');
@@ -175,6 +193,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Function to load TalentLMS data
+  const loadTalentLMSData = async (userData: User) => {
+    try {
+      console.log('Loading TalentLMS data for user:', userData.email);
+
+      // Search user in TalentLMS by email
+      const searchResponse = await coursesApi.searchTalentLMSUser({ email: userData.email });
+
+      if (searchResponse.success && searchResponse.data) {
+        console.log('TalentLMS user found:', searchResponse.data);
+        setTalentLMSUser(searchResponse.data);
+        // Courses will be loaded from the courses page when needed
+        setTalentLMSCourses([]);
+      } else {
+        console.log('User not found in TalentLMS - this is normal for users not yet registered');
+        setTalentLMSUser(null);
+        setTalentLMSCourses(null);
+      }
+    } catch (error) {
+      // Don't log as error since it's normal for users not in TalentLMS
+      console.log('User not registered in TalentLMS or error loading data');
+      setTalentLMSUser(null);
+      setTalentLMSCourses(null);
+    }
+  };
+
+  // Function to refresh TalentLMS data
+  const refreshTalentLMSData = async () => {
+    if (user) {
+      await loadTalentLMSData(user);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       // Call the backend API
@@ -257,7 +308,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Load user avatar after successful login
       loadUserAvatar(user);
-      
+
       // Check if companiesVerifications came in the login response
       if ((response.user as any).companiesVerifications) {
         console.log('Found companiesVerifications in login response');
@@ -267,7 +318,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Load pending verifications after successful login
         loadPendingVerifications(user);
       }
-      
+
+      // Load TalentLMS data after successful login
+      loadTalentLMSData(user);
+
       // Return the user for login redirect
       return user;
     } catch (error) {
@@ -285,15 +339,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     // Track logout before clearing user data
     trackingService.trackAuthEvent('logout');
-    
+
     // Clean up avatar URL
     if (userAvatarUrl) {
       URL.revokeObjectURL(userAvatarUrl);
       setUserAvatarUrl(null);
     }
-    
+
     setUser(null);
     setCompany(null);
+    setTalentLMSUser(null);
+    setTalentLMSCourses(null);
     localStorage.removeItem('user');
     localStorage.removeItem('company');
     authService.removeToken();
@@ -496,7 +552,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         checkImpersonationStatus,
         refreshUserAvatar,
         pendingVerifications,
-        refreshPendingVerifications
+        refreshPendingVerifications,
+        talentLMSUser,
+        talentLMSCourses,
+        refreshTalentLMSData
       }}
     >
       {children}

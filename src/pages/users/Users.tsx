@@ -53,9 +53,7 @@ import {
   CheckCircle as SuccessIcon,
   ErrorOutline as ErrorIcon,
   SupervisorAccount as SupervisorIcon,
-  VerifiedUser as VerifiedIcon,
-  Assessment as AssessmentIcon,
-  Star as StarIcon
+  VerifiedUser as VerifiedIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { User, UserRole } from '../../types';
@@ -306,15 +304,8 @@ export const Users: React.FC = () => {
 
   const handleViewVerifications = (user: User) => {
     // Navigate to user details with a state indicating to open the company verifications tab
-    navigate(`/users/${user._id || user.id}`, { 
-      state: { openCompanyVerificationsTab: true } 
-    });
-  };
-
-  const handleViewEvaluations = (user: User) => {
-    // Navigate to user details with a state indicating to open the evaluations tab
-    navigate(`/users/${user._id || user.id}`, { 
-      state: { openEvaluationsTab: true } 
+    navigate(`/users/${user._id || user.id}`, {
+      state: { openCompanyVerificationsTab: true }
     });
   };
 
@@ -550,14 +541,6 @@ export const Users: React.FC = () => {
       }
     }
     return { status: 'unverified', label: 'Sin verificar', color: 'default' as const };
-  };
-
-  const getEvaluationScore = (user: User) => {
-    // Use real data from reviewSummary
-    if (user.reviewSummary && user.reviewSummary.receivedReviews.averageRating > 0) {
-      return user.reviewSummary.receivedReviews.averageRating;
-    }
-    return null;
   };
 
 
@@ -920,84 +903,34 @@ export const Users: React.FC = () => {
                       )}
                     </Box>
                   </Grid>
-                  {/* Verificación y Evaluación */}
-                  {(user.verificationSummary || user.reviewSummary) && (
-                    <>
-                      {user.verificationSummary && (
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Verificación
-                          </Typography>
-                          <Box sx={{ mt: 0.5 }}>
-                            {(() => {
-                              const verification = getVerificationStatus(user);
-                              const summary = user.verificationSummary;
-                              const tooltipContent = summary ? 
-                                `${summary.compliantCompanies}/${summary.totalCompanies} empresas` : 
-                                'Sin información';
-                              
-                              return (
-                                <Tooltip title={tooltipContent}>
-                                  <Chip
-                                    icon={<VerifiedIcon />}
-                                    label={verification.label}
-                                    size="small"
-                                    color={verification.color}
-                                    variant={verification.status === 'verified' ? 'filled' : 'outlined'}
-                                  />
-                                </Tooltip>
-                              );
-                            })()}
-                          </Box>
-                        </Grid>
-                      )}
-                      {user.reviewSummary && (
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Evaluación
-                          </Typography>
-                          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center' }}>
-                            {(() => {
-                              const score = getEvaluationScore(user);
-                              const summary = user.reviewSummary;
-                              const totalReviews = summary?.receivedReviews.total || 0;
-                              
-                              return (
-                                <>
-                                  <StarIcon sx={{ 
-                                    color: score ? 
-                                      (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
-                                      'text.disabled', 
-                                    fontSize: 20 
-                                  }} />
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
-                                      ml: 0.5,
-                                      fontWeight: score ? 'medium' : 'normal',
-                                      color: score ? 'text.primary' : 'text.disabled'
-                                    }}
-                                  >
-                                    {score ? `${Math.round(score)}%` : 'Sin evaluar'}
-                                  </Typography>
-                                  {totalReviews > 0 && (
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{ 
-                                        ml: 0.5,
-                                        color: 'text.secondary'
-                                      }}
-                                    >
-                                      ({totalReviews})
-                                    </Typography>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </Box>
-                        </Grid>
-                      )}
-                    </>
+                  {/* Verificación */}
+                  {user.verificationSummary && (
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Verificación
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        {(() => {
+                          const verification = getVerificationStatus(user);
+                          const summary = user.verificationSummary;
+                          const tooltipContent = summary ?
+                            `${summary.compliantCompanies}/${summary.totalCompanies} empresas` :
+                            'Sin información';
+
+                          return (
+                            <Tooltip title={tooltipContent}>
+                              <Chip
+                                icon={<VerifiedIcon />}
+                                label={verification.label}
+                                size="small"
+                                color={verification.color}
+                                variant={verification.status === 'verified' ? 'filled' : 'outlined'}
+                              />
+                            </Tooltip>
+                          );
+                        })()}
+                      </Box>
+                    </Grid>
                   )}
                 </Grid>
               </CardContent>
@@ -1015,7 +948,6 @@ export const Users: React.FC = () => {
                 <TableCell>Espacios de Trabajo</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="center">Verificación</TableCell>
-                <TableCell align="center">Evaluación</TableCell>
                 <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -1195,10 +1127,10 @@ export const Users: React.FC = () => {
                         {(() => {
                           const verification = getVerificationStatus(user);
                           const summary = user.verificationSummary;
-                          const tooltipContent = summary ? 
-                            `Empresas cumplidas: ${summary.compliantCompanies}/${summary.totalCompanies}` : 
+                          const tooltipContent = summary ?
+                            `Empresas cumplidas: ${summary.compliantCompanies}/${summary.totalCompanies}` :
                             'Sin información de verificación';
-                          
+
                           return (
                             <Tooltip title={tooltipContent}>
                               <Chip
@@ -1213,74 +1145,12 @@ export const Users: React.FC = () => {
                         })()}
                         {canManageUsers() && (
                           <Tooltip title="Ver verificaciones detalladas">
-                            <IconButton 
-                              size="small" 
+                            <IconButton
+                              size="small"
                               color="primary"
                               onClick={() => handleViewVerifications(user)}
                             >
                               <VerifiedIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-                  {/* Evaluación Column */}
-                  <TableCell align="center">
-                    {user.reviewSummary ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        {(() => {
-                          const score = getEvaluationScore(user);
-                          const summary = user.reviewSummary;
-                          const totalReviews = summary?.receivedReviews.total || 0;
-                          const tooltipContent = summary ? 
-                            `${totalReviews} evaluación${totalReviews !== 1 ? 'es' : ''} • ${summary.receivedReviews.wouldHireAgainPercentage}% lo contrataría de nuevo` : 
-                            'Sin evaluaciones';
-                          
-                          return (
-                            <Tooltip title={tooltipContent}>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <StarIcon sx={{ 
-                                  color: score ? 
-                                    (score >= 80 ? 'success.main' : score >= 60 ? 'warning.main' : 'error.main') : 
-                                    'text.disabled', 
-                                  fontSize: 20 
-                                }} />
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    ml: 0.5,
-                                    fontWeight: score ? 'medium' : 'normal',
-                                    color: score ? 'text.primary' : 'text.disabled'
-                                  }}
-                                >
-                                  {score ? `${Math.round(score)}%` : '--'}
-                                </Typography>
-                                {totalReviews > 0 && (
-                                  <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                      ml: 0.5,
-                                      color: 'text.secondary'
-                                    }}
-                                  >
-                                    ({totalReviews})
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Tooltip>
-                          );
-                        })()}
-                        {(hasRole([UserRole.SUPER_ADMIN, UserRole.SAFETY_STAFF, UserRole.CLIENT_SUPERVISOR, UserRole.CLIENT_APPROVER])) && (
-                          <Tooltip title="Ver evaluaciones">
-                            <IconButton 
-                              size="small" 
-                              color="primary"
-                              onClick={() => handleViewEvaluations(user)}
-                            >
-                              <AssessmentIcon />
                             </IconButton>
                           </Tooltip>
                         )}

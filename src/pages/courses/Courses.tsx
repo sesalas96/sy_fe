@@ -19,11 +19,12 @@ import {
 import {
   School as SchoolIcon,
   Add as AddIcon,
-  CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
   WorkspacePremium as CertificationIcon,
   Download as DownloadIcon,
-  FilterList as FilterIcon
+  Visibility as VisibilityIcon,
+  RemoveCircleOutline as RemoveCircleOutlineIcon,
+  PlayArrow as PlayArrowIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { coursesApi } from '../../services/coursesApi';
@@ -58,38 +59,69 @@ function TabPanel(props: TabPanelProps) {
 export const Courses: React.FC = () => {
   const { user } = useAuth();
   usePageTitle('Mis Cursos', 'Gestión de cursos personales');
-  
+
   const [loading, setLoading] = useState(true);
   const [userCourses, setUserCourses] = useState<any>(null);
   const [availableCourses, setAvailableCourses] = useState<any[]>([]);
   const [tabValue, setTabValue] = useState(0);
   const [enrolling, setEnrolling] = useState<string | null>(null);
-  const [courseFilter, setCourseFilter] = useState<'all' | 'enrollments' | 'enrolled'>('all');
+  const [talentLMSUser, setTalentLMSUser] = useState<any>(null);
+  const [talentLMSProgress, setTalentLMSProgress] = useState<any>(null);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CR');
   };
 
-  const loadUserCourses = useCallback(async (filter: 'all' | 'enrollments' | 'enrolled' = 'all') => {
+  const checkTalentLMSUser = useCallback(async () => {
     if (!user?._id && !user?.id) return;
-    
-    const userId = user._id || user.id || '';
-    setLoading(true);
-    
+
     try {
-      // Build query params based on filter
-      let queryParams = {};
-      if (filter === 'enrollments') {
-        queryParams = { type: 'enrollments' };
-      } else if (filter === 'enrolled') {
-        queryParams = { type: 'enrollments', status: 'enrolled' };
-      }
-      
-      // Cargar cursos del usuario
-      const userCoursesResponse = await coursesApi.getUserCourses(userId, queryParams);
-      if (userCoursesResponse.success && userCoursesResponse.data) {
-        setUserCourses(userCoursesResponse.data);
+      const response = await coursesApi.searchTalentLMSUser({ email: user.email || '' });
+      if (response.success && response.data) {
+        // searchTalentLMSUser puede devolver un objeto o un array
+        const userData = Array.isArray(response.data) ? response.data[0] : response.data;
+
+        if (userData) {
+          // La respuesta de searchTalentLMSUser ya incluye los cursos
+          // No necesitamos hacer otra llamada
+          setTalentLMSUser(userData);
+          console.log('TalentLMS user set with courses:', userData.courses?.length || 0);
+        } else {
+          setTalentLMSUser(null);
+        }
       } else {
+        setTalentLMSUser(null);
+      }
+    } catch (error) {
+      console.error('Error checking TalentLMS user:', error);
+      setTalentLMSUser(null);
+    }
+  }, [user]);
+
+  const loadCourseProgress = useCallback(async () => {
+    if (!user?._id && !user?.id) return;
+
+    const userId = user._id || user.id || '';
+
+    try {
+      // TalentLMS progress will be loaded separately if needed
+
+      // Cargar cursos del usuario (iniciales y adicionales)
+      try {
+        const userCoursesResponse = await coursesApi.getUserCourses(userId);
+        if (userCoursesResponse.success && userCoursesResponse.data) {
+          setUserCourses(userCoursesResponse.data);
+        } else {
+          setUserCourses({
+            initial: [],
+            additional: [],
+            enrollments: [],
+            stats: null
+          });
+        }
+      } catch (error) {
+        console.error('Error loading user courses:', error);
+        // Set empty structure instead of leaving null
         setUserCourses({
           initial: [],
           additional: [],
@@ -97,52 +129,150 @@ export const Courses: React.FC = () => {
           stats: null
         });
       }
-      
-      // Cargar cursos disponibles (solo si no estamos filtrando)
-      if (filter === 'all') {
-        try {
-          const availableCoursesResponse = await coursesApi.getTalentLMSAvailableCourses();
-          if (availableCoursesResponse.success && availableCoursesResponse.data) {
-            setAvailableCourses(availableCoursesResponse.data);
-          }
-        } catch (error) {
-          console.error('Error loading available courses:', error);
+
+      // Cargar cursos disponibles
+      try {
+        const availableCoursesResponse = await coursesApi.getTalentLMSAvailableCourses();
+        if (availableCoursesResponse.success && availableCoursesResponse.data) {
+          // Filtrar solo cursos activos
+          const activeCourses = availableCoursesResponse.data.filter((course: any) =>
+            course.status === 'active' || course.status === 'Active' || !course.status
+          );
+          setAvailableCourses(activeCourses);
         }
+      } catch (error) {
+        console.error('Error loading available courses:', error);
       }
     } catch (error) {
-      console.error('Error loading user courses:', error);
-      setUserCourses({
-        initial: [],
-        additional: [],
-        enrollments: [],
-        stats: null
-      });
-    } finally {
-      setLoading(false);
+      console.error('Error loading course progress:', error);
     }
   }, [user?._id, user?.id]);
 
   useEffect(() => {
-    loadUserCourses(courseFilter);
-  }, [courseFilter]);
+    const init = async () => {
+      setLoading(true);
+      await checkTalentLMSUser();
+      await loadCourseProgress();
+      setLoading(false);
+    };
+    init();
+  }, [checkTalentLMSUser, loadCourseProgress]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
   const handleEnrollInCourse = async (courseId: string) => {
-    if (!user?._id && !user?.id) return;
-    
+    if (!user || !talentLMSUser) return;
+
     setEnrolling(courseId);
     try {
-      const userId = user._id || user.id || '';
-      await coursesApi.enrollUserInTalentLMSCourses(userId, [courseId]);
-      // Recargar cursos del usuario
-      await loadUserCourses(courseFilter);
+      const response = await coursesApi.enrollToCourse({
+        userId: String(talentLMSUser.id),
+        courseId: courseId,
+        role: 'learner'
+      });
+
+      if (response.success) {
+        // Recargar el progreso del curso y la información del usuario en TalentLMS
+        await loadCourseProgress();
+        await checkTalentLMSUser();
+
+        // Cambiar al tab "Cursos del usuario" (index 0)
+        setTabValue(0);
+      }
     } catch (error) {
       console.error('Error enrolling in course:', error);
     } finally {
       setEnrolling(null);
+    }
+  };
+
+  const handleUnenrollFromCourse = async (courseId: string) => {
+    if (!talentLMSUser) return;
+
+    try {
+      const response = await coursesApi.unenrollFromCourse({
+        userId: String(talentLMSUser.id),
+        courseId: courseId
+      });
+
+      if (response.success) {
+        // Recargar el progreso del curso y la información del usuario en TalentLMS
+        await loadCourseProgress();
+        await checkTalentLMSUser();
+      }
+    } catch (error: any) {
+      console.error('Error unenrolling from course:', error);
+    }
+  };
+
+  // Función para filtrar cursos disponibles (excluir los ya inscritos)
+  const getFilteredAvailableCourses = () => {
+    if (!availableCourses || availableCourses.length === 0) return [];
+
+    // Obtener IDs de todos los cursos que el usuario ya tiene
+    const enrolledCourseIds = new Set<string>();
+
+    // Agregar cursos de TalentLMS
+    if (talentLMSUser?.courses) {
+      talentLMSUser.courses.forEach((course: any) => {
+        enrolledCourseIds.add(String(course.id));
+      });
+    }
+
+    // Agregar cursos iniciales
+    if (userCourses?.initial) {
+      userCourses.initial.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Agregar cursos adicionales
+    if (userCourses?.additional) {
+      userCourses.additional.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Agregar enrollments
+    if (userCourses?.enrollments) {
+      userCourses.enrollments.forEach((course: any) => {
+        const courseId = typeof course === 'string' ? course : course.id;
+        if (courseId) enrolledCourseIds.add(String(courseId));
+      });
+    }
+
+    // Filtrar cursos disponibles excluyendo los ya inscritos
+    return availableCourses.filter(course => !enrolledCourseIds.has(String(course.id)));
+  };
+
+  const handleGoToCourse = async (courseId: string) => {
+    if (!talentLMSUser) return;
+
+    try {
+      // Obtener la URL base de la aplicación
+      const appBaseUrl = window.location.origin;
+
+      const response = await coursesApi.goToCourse({
+        userId: String(talentLMSUser.id),
+        courseId: courseId,
+        // Redirigir al dashboard cuando el usuario cierre sesión en TalentLMS
+        logoutRedirect: `${appBaseUrl}/dashboard`,
+        // Redirigir a la página de cursos cuando complete el curso
+        courseCompletedRedirect: `${appBaseUrl}/courses?completed=true`,
+        // Ocultar el logo y el menú en TalentLMS para una experiencia más integrada
+        headerHiddenOptions: 'logo;menu'
+      });
+
+      if (response.success && response.data?.goto_url) {
+        // Abrir el curso en una nueva pestaña
+        window.open(response.data.goto_url, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Error going to course:', error);
     }
   };
 
@@ -170,122 +300,47 @@ export const Courses: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">
-          <SchoolIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Mis Cursos
-        </Typography>
-        
-        {/* Filter Buttons */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Chip
-            label="Todos"
-            onClick={() => setCourseFilter('all')}
-            color={courseFilter === 'all' ? 'primary' : 'default'}
-            variant={courseFilter === 'all' ? 'filled' : 'outlined'}
-            clickable
-          />
-          <Chip
-            label="Solo Inscripciones"
-            onClick={() => setCourseFilter('enrollments')}
-            color={courseFilter === 'enrollments' ? 'primary' : 'default'}
-            variant={courseFilter === 'enrollments' ? 'filled' : 'outlined'}
-            clickable
-            icon={<FilterIcon />}
-          />
-          <Chip
-            label="Solo Activos"
-            onClick={() => setCourseFilter('enrolled')}
-            color={courseFilter === 'enrolled' ? 'primary' : 'default'}
-            variant={courseFilter === 'enrolled' ? 'filled' : 'outlined'}
-            clickable
-            icon={<CheckCircleIcon />}
-          />
-        </Box>
-      </Box>
-
-      {/* Filter Message */}
-      {courseFilter !== 'all' && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {courseFilter === 'enrollments' 
-            ? 'Mostrando solo cursos inscritos (enrollments)'
-            : 'Mostrando solo cursos activos con estado "enrolled"'
-          }
-        </Alert>
-      )}
-
-      {/* Course Statistics */}
-      {userCourses?.stats && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, sm: 3 }}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Typography variant="h4" color="success.main">
-                  {userCourses.stats.totalCompleted || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">Completados</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 3 }}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Typography variant="h4" color="warning.main">
-                  {userCourses.stats.totalEnrolled || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">En Progreso</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 3 }}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Typography variant="h4" color="info.main">
-                  {userCourses.stats.averageScore || 0}%
-                </Typography>
-                <Typography variant="body2" color="text.secondary">Puntaje Promedio</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 3 }}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Chip 
-                  label={userCourses.stats.complianceStatus || 'N/A'}
-                  color={
-                    userCourses.stats.complianceStatus === 'compliant' ? 'success' :
-                    userCourses.stats.complianceStatus === 'partial' ? 'warning' : 'error'
-                  }
-                  size="medium"
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Estado de Cumplimiento
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
+      <Typography variant="h4" gutterBottom>
+        <SchoolIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+        Mis Cursos
+      </Typography>
 
       {/* Tabs */}
-      <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label={`Mis Cursos ${userCourses ? `(${
-          courseFilter === 'all' 
-            ? (userCourses.initial?.length || 0) + (userCourses.additional?.length || 0) + (userCourses.enrollments?.length || 0)
-            : (userCourses.enrollments?.length || 0)
-        })` : ''}`} />
-        <Tab 
-          label={`Cursos Disponibles ${availableCourses ? `(${availableCourses.length})` : ''}`} 
-          disabled={courseFilter !== 'all'}
+      <Tabs
+        value={tabValue}
+        onChange={handleTabChange}
+        textColor="primary"
+        indicatorColor="primary"
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab
+          label={`Cursos del usuario ${(() => {
+            const initialCount = userCourses?.initial?.length || 0;
+            const additionalCount = userCourses?.additional?.length || 0;
+            const enrollmentsCount = userCourses?.enrollments?.length || 0;
+            const talentLMSCount = talentLMSUser?.courses?.length || 0;
+            const total = initialCount + additionalCount + enrollmentsCount + talentLMSCount;
+            return `(${total})`;
+          })()}`}
+          disabled={!talentLMSUser}
+          sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
+        />
+        <Tab
+          label={`Cursos Disponibles (${getFilteredAvailableCourses().length})`}
+          disabled={!talentLMSUser}
+          sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
         />
       </Tabs>
 
-      {/* Tab Panel 0: Mis Cursos */}
+      {/* Tab Panel 0: Cursos del usuario */}
       <TabPanel value={tabValue} index={0}>
-        {userCourses && (userCourses.initial?.length > 0 || userCourses.additional?.length > 0 || userCourses.enrollments?.length > 0) ? (
-          <Stack spacing={3}>
-            {/* Cursos Iniciales - Solo mostrar si no estamos filtrando */}
-            {courseFilter === 'all' && userCourses.initial?.length > 0 && (
+        {talentLMSUser ? (
+          <>
+            {(userCourses && (userCourses.initial?.length > 0 || userCourses.additional?.length > 0)) ||
+             (talentLMSUser.courses && talentLMSUser.courses.length > 0) ? (
+              <Stack spacing={3}>
+                {/* Cursos Iniciales */}
+                {userCourses.initial?.length > 0 && (
               <>
                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SchoolIcon color="primary" />
@@ -315,8 +370,8 @@ export const Courses: React.FC = () => {
               </>
             )}
 
-            {/* Cursos Adicionales - Solo mostrar si no estamos filtrando */}
-            {courseFilter === 'all' && userCourses.additional?.length > 0 && (
+            {/* Cursos Adicionales */}
+            {userCourses.additional?.length > 0 && (
               <>
                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 3 }}>
                   <SchoolIcon color="secondary" />
@@ -351,50 +406,237 @@ export const Courses: React.FC = () => {
               </>
             )}
 
-            {/* Cursos Inscritos */}
-            {userCourses.enrollments?.length > 0 && (
+            {/* Cursos en TalentLMS */}
+            {talentLMSProgress && talentLMSProgress.courses && talentLMSProgress.courses.length > 0 && (
               <>
-                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 3 }}>
-                  <SchoolIcon color="info" />
-                  Cursos Inscritos
+                <Divider sx={{ my: 3 }} />
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SchoolIcon color="primary" />
+                  Progreso en TalentLMS
                 </Typography>
                 <Stack spacing={2}>
-                  {userCourses.enrollments.map((enrollment: any, index: number) => (
-                    <Card key={`enrollment-${index}`} variant="outlined">
+                  {talentLMSProgress.courses.map((course: any) => (
+                    <Card key={course.id} variant="outlined">
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="subtitle1" fontWeight="medium">
-                              {getCourseName(enrollment.talentLMSCourseId || enrollment.courseId) || `Curso ID: ${enrollment.courseId || enrollment.talentLMSCourseId || enrollment}`}
+                            <Typography variant="h6">
+                              {course.name}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              ID: {enrollment.courseId} {enrollment.talentLMSCourseId && enrollment.talentLMSCourseId !== enrollment.courseId && `(TalentLMS: ${enrollment.talentLMSCourseId})`}
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              ID: {course.id}
                             </Typography>
-                            {enrollment.enrollmentDate && (
-                              <Typography variant="body2" color="text.secondary">
-                                Inscrito: {formatDate(enrollment.enrollmentDate)}
+                            <Box sx={{ mt: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2">Progreso</Typography>
+                                <Typography variant="body2" fontWeight="medium">{course.completionPercentage}%</Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={course.completionPercentage}
+                                sx={{ height: 8, borderRadius: 4 }}
+                                color={course.status === 'completed' ? 'success' : 'primary'}
+                              />
+                            </Box>
+                          </Box>
+                          <Box sx={{ ml: 2, textAlign: 'right' }}>
+                            <Chip
+                              label={
+                                course.status === 'completed' ? 'Completado' :
+                                course.status === 'not_started' ? 'No iniciado' :
+                                'En Progreso'
+                              }
+                              color={
+                                course.status === 'completed' ? 'success' :
+                                course.status === 'not_started' ? 'default' :
+                                'warning'
+                              }
+                              size="small"
+                              sx={{ mb: 1 }}
+                            />
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {course.enrollmentDate && `Inscrito: ${formatDate(course.enrollmentDate)}`}
+                            </Typography>
+                            {course.completionDate && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                Completado: {formatDate(course.completionDate)}
                               </Typography>
                             )}
-                            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                              <Chip 
-                                label="Inscrito" 
-                                color="info" 
+                            {course.status === 'completed' && course.certificateUrl && (
+                              <Button
+                                size="small"
+                                startIcon={<DownloadIcon />}
+                                sx={{ mt: 1 }}
+                                href={course.certificateUrl}
+                                target="_blank"
+                              >
+                                Certificado
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </>
+            )}
+
+            {/* Cursos Inscritos en TalentLMS - Detallado */}
+            {talentLMSUser && talentLMSUser.courses && talentLMSUser.courses.length > 0 && (
+              <>
+                <Divider sx={{ my: 3 }} />
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SchoolIcon color="info" />
+                  Cursos Inscritos en TalentLMS ({talentLMSUser.courses.length})
+                </Typography>
+                <Stack spacing={2}>
+                  {talentLMSUser.courses.map((course: any) => (
+                    <Card key={course.id} variant="outlined" sx={{
+                      borderColor: course.expired_on ? 'error.main' :
+                                  course.completion_percentage === 100 ? 'success.main' :
+                                  'divider'
+                    }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" gutterBottom>
+                              {course.name}
+                            </Typography>
+
+                            <Grid container spacing={2} sx={{ mt: 1 }}>
+                              <Grid size={{ xs: 12, sm: 6 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>ID del Curso:</strong> {course.id}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Categoría:</strong> {course.category || 'Sin categoría'}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Inscrito:</strong> {formatDate(course.enrolled_on)}
+                                </Typography>
+                                {course.completed_on && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Completado:</strong> {formatDate(course.completed_on)}
+                                  </Typography>
+                                )}
+                                {course.expired_on && (
+                                  <Typography variant="body2" color="error">
+                                    <strong>Expirado:</strong> {formatDate(course.expired_on)}
+                                  </Typography>
+                                )}
+                              </Grid>
+
+                              <Grid size={{ xs: 12, sm: 6 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Estado:</strong> {course.completion_status_formatted || course.completion_status || 'En progreso'}
+                                </Typography>
+                                {course.total_time && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Tiempo Total:</strong> {course.total_time_formatted || course.total_time}
+                                  </Typography>
+                                )}
+                                {course.time_spent && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Tiempo Invertido:</strong> {course.time_spent_formatted || course.time_spent}
+                                  </Typography>
+                                )}
+                                {course.last_accessed_unit_name && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Última Unidad:</strong> {course.last_accessed_unit_name}
+                                  </Typography>
+                                )}
+                              </Grid>
+                            </Grid>
+
+                            {/* Progress bar */}
+                            <Box sx={{ mt: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2">Progreso</Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {course.completion_percentage}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={course.completion_percentage}
+                                sx={{
+                                  height: 10,
+                                  borderRadius: 5,
+                                  backgroundColor: 'grey.300',
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 5,
+                                  }
+                                }}
+                                color={course.completion_percentage === 100 ? 'success' : 'primary'}
+                              />
+                            </Box>
+
+                            {/* Status chips and actions */}
+                            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                              <Chip
+                                label={`${course.completion_percentage}% Completado`}
+                                color={course.completion_percentage === 100 ? 'success' : 'primary'}
                                 size="small"
                               />
-                              {enrollment.progress !== undefined && (
-                                <Chip 
-                                  label={`${enrollment.progress}% completado`}
-                                  color={enrollment.progress === 100 ? 'success' : 'default'}
+                              {course.expired_on && (
+                                <Chip
+                                  label="Expirado"
+                                  color="error"
                                   size="small"
                                 />
                               )}
-                              {enrollment.status && (
-                                <Chip 
-                                  label={enrollment.status === 'enrolled' ? 'Inscrito' : enrollment.status}
+                              {course.certification && (
+                                <Chip
+                                  label="Con Certificación"
                                   color="info"
                                   size="small"
                                   variant="outlined"
                                 />
+                              )}
+                            </Box>
+
+                            {/* Action buttons */}
+                            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                startIcon={<VisibilityIcon />}
+                                onClick={() => handleGoToCourse(course.id)}
+                              >
+                                Ir al Curso
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                startIcon={<RemoveCircleOutlineIcon />}
+                                onClick={() => handleUnenrollFromCourse(course.id)}
+                              >
+                                Desinscribir
+                              </Button>
+
+                              {course.last_accessed_unit_url && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  href={course.last_accessed_unit_url}
+                                  target="_blank"
+                                  startIcon={<PlayArrowIcon />}
+                                >
+                                  Continuar Curso
+                                </Button>
+                              )}
+                              {course.completion_percentage === 100 && course.certification && (
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="success"
+                                  startIcon={<DownloadIcon />}
+                                >
+                                  Descargar Certificado
+                                </Button>
                               )}
                             </Box>
                           </Box>
@@ -408,16 +650,24 @@ export const Courses: React.FC = () => {
           </Stack>
         ) : (
           <Alert severity="info">
-            No tienes cursos asignados.
+            No hay cursos asignados a este usuario.
+          </Alert>
+        )}
+          </>
+        ) : (
+          <Alert severity="warning">
+            Este usuario no está registrado en TalentLMS.
           </Alert>
         )}
       </TabPanel>
 
       {/* Tab Panel 1: Cursos Disponibles */}
       <TabPanel value={tabValue} index={1}>
-        {availableCourses && availableCourses.length > 0 ? (
-          <Grid container spacing={2}>
-            {availableCourses.map((course: any) => (
+        {(() => {
+          const filteredCourses = getFilteredAvailableCourses();
+          return filteredCourses.length > 0 ? (
+            <Grid container spacing={2}>
+              {filteredCourses.map((course: any) => (
               <Grid size={{ xs: 12, md: 6 }} key={course.id}>
                 <Card variant="outlined">
                   <CardContent>
@@ -502,7 +752,8 @@ export const Courses: React.FC = () => {
           <Alert severity="info">
             No hay cursos disponibles en este momento.
           </Alert>
-        )}
+        );
+        })()}
       </TabPanel>
     </Box>
   );

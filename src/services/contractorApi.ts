@@ -226,23 +226,6 @@ export const contractorApi = {
     return apiCall('POST', `/api/contractors/${id}/evaluate`, evaluation);
   },
 
-  // Get contractor certifications
-  getCertifications: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/api/contractors/${id}/certifications`);
-  },
-
-  // Add new certification
-  addCertification: async (id: string, certification: {
-    type: string;
-    name: string;
-    issuedBy: string;
-    issueDate: string;
-    expiryDate: string;
-    certificateNumber: string;
-    documentUrl?: string;
-  }): Promise<ApiResponse<any>> => {
-    return apiCall('POST', `/api/contractors/${id}/certifications`, certification);
-  },
 
   // Get terms acceptance status
   getTermsAcceptance: async (id: string): Promise<ApiResponse<any>> => {

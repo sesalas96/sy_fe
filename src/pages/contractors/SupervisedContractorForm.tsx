@@ -433,8 +433,10 @@ export const SupervisedContractorForm: React.FC = () => {
           }
           break;
         case 'certification':
-          response = await contractorApi.addCertification(id, newItem);
-          break;
+          // TODO: Implementar lógica de certificaciones
+          setError('Funcionalidad de certificaciones no disponible');
+          setLoading(false);
+          return;
       }
 
       if (response?.success) {

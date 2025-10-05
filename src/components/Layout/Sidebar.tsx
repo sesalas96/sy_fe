@@ -224,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, hasRole, logout, userAvatarUrl, pendingVerifications } = useAuth();
+  const { user, hasRole, logout, userAvatarUrl, pendingVerifications, talentLMSUser, talentLMSCourses } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   // Auto-expand/collapse menus based on current route
@@ -488,6 +488,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </Box>
             </Box>
+
+            {/* TalentLMS Courses Section */}
+            {talentLMSUser && talentLMSCourses && talentLMSCourses.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: '0.688rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    mb: 1,
+                    display: 'block'
+                  }}
+                >
+                  Mis Cursos
+                </Typography>
+                <Box sx={{ maxHeight: 150, overflow: 'auto' }}>
+                  {talentLMSCourses.slice(0, 3).map((course: any) => (
+                    <Box
+                      key={course.id}
+                      sx={{
+                        p: 0.75,
+                        mb: 0.5,
+                        borderRadius: 0.5,
+                        bgcolor: 'action.hover',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.selected'
+                        }
+                      }}
+                      onClick={() => handleNavigate('/courses')}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          display: 'block',
+                          color: 'text.primary',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {course.name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: '0.688rem',
+                          color: course.status === 'completed' ? 'success.main' : 'warning.main',
+                          display: 'block'
+                        }}
+                      >
+                        {course.status === 'completed' ? 'Completado' : `${Math.round(course.completionPercentage || 0)}% completado`}
+                      </Typography>
+                    </Box>
+                  ))}
+                  {talentLMSCourses.length > 3 && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'primary.main',
+                        fontSize: '0.688rem',
+                        cursor: 'pointer',
+                        display: 'block',
+                        textAlign: 'center',
+                        mt: 0.5,
+                        '&:hover': {
+                          textDecoration: 'underline'
+                        }
+                      }}
+                      onClick={() => handleNavigate('/courses')}
+                    >
+                      Ver todos ({talentLMSCourses.length})
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
 
             <Button
               fullWidth

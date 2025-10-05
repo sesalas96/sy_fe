@@ -564,28 +564,6 @@ class CoursesApi {
     }
   }
 
-  async getUserTalentLMSProgress(userId: string) {
-    try {
-      const response = await fetch(
-        `${BASE_URL}/api/talent-lms/users/${userId}/progress`,
-        {
-          method: 'GET',
-          headers: this.getAuthHeaders()
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Error al obtener progreso del usuario en TalentLMS');
-      }
-
-      return result.data;
-    } catch (error) {
-      console.error('Error fetching user TalentLMS progress:', error);
-      throw error;
-    }
-  }
 
   async syncUserCompletions(userId: string) {
     try {
@@ -672,19 +650,26 @@ class CoursesApi {
   }
 
   async enrollToCourse(data: {
-    userId?: string;
-    courseId?: string;
+    userId?: string | number;
+    courseId?: string | number;
     userEmail?: string;
     courseName?: string;
     role?: 'learner' | 'instructor';
   }) {
     try {
+      // Ensure userId and courseId are strings
+      const payload = {
+        ...data,
+        userId: data.userId !== undefined ? String(data.userId) : undefined,
+        courseId: data.courseId !== undefined ? String(data.courseId) : undefined,
+      };
+
       const response = await fetch(
         `${BASE_URL}/api/talent-lms/enroll-to-course`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         }
       );
 
@@ -702,16 +687,22 @@ class CoursesApi {
   }
 
   async unenrollFromCourse(data: {
-    userId: string;
-    courseId: string;
+    userId: string | number;
+    courseId: string | number;
   }) {
     try {
+      // Ensure userId and courseId are strings
+      const payload = {
+        userId: String(data.userId),
+        courseId: String(data.courseId),
+      };
+
       const response = await fetch(
         `${BASE_URL}/api/talent-lms/unenroll-from-course`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         }
       );
 
@@ -729,19 +720,26 @@ class CoursesApi {
   }
 
   async goToCourse(data: {
-    userId: string;
-    courseId: string;
+    userId: string | number;
+    courseId: string | number;
     logoutRedirect?: string;
     courseCompletedRedirect?: string;
     headerHiddenOptions?: string;
   }) {
     try {
+      // Ensure userId and courseId are strings
+      const payload = {
+        ...data,
+        userId: String(data.userId),
+        courseId: String(data.courseId),
+      };
+
       const response = await fetch(
         `${BASE_URL}/api/talent-lms/goto-course`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         }
       );
 
