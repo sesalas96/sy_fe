@@ -30,8 +30,10 @@ import {
   Badge as BadgeIcon,
   Clear as ClearIcon,
   CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { companyApi } from '../../services/companyApi';
 import { UserRole } from '../../types';
 
@@ -58,9 +60,10 @@ interface CompanyUsersProps {
 }
 
 const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) => {
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   const [users, setUsers] = useState<CompanyUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -256,35 +259,49 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Nombre</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Cédula</TableCell>
-                <TableCell>Teléfono</TableCell>
+                <TableCell>Usuario</TableCell>
                 <TableCell>Rol</TableCell>
                 <TableCell>Departamentos</TableCell>
                 <TableCell>Estado</TableCell>
+                <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {paginatedUsers.map((user) => (
                 <TableRow key={user._id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {user.firstName} {user.lastName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{user.email}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {user.cedula || '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {user.phone || '-'}
-                    </Typography>
+                    <Tooltip
+                      title={
+                        <Box>
+                          {user.email && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              <strong>Email:</strong> {user.email}
+                            </Typography>
+                          )}
+                          {user.cedula && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              <strong>Cédula:</strong> {user.cedula}
+                            </Typography>
+                          )}
+                          {user.phone && (
+                            <Typography variant="body2">
+                              <strong>Teléfono:</strong> {user.phone}
+                            </Typography>
+                          )}
+                          {!user.email && !user.cedula && !user.phone && (
+                            <Typography variant="body2">
+                              Sin información de contacto
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                      placement="top"
+                      arrow
+                    >
+                      <Typography variant="body2" fontWeight="medium" sx={{ cursor: 'help' }}>
+                        {user.firstName} {user.lastName}
+                      </Typography>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -330,6 +347,17 @@ const CompanyUsers: React.FC<CompanyUsersProps> = ({ companyId, companyName }) =
                     )}
                   </TableCell>
                   <TableCell>{getStatusChip(user)}</TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Ver detalle del usuario">
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/users/${user._id}`)}
+                        color="primary"
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

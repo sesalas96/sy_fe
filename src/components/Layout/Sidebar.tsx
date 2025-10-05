@@ -224,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, hasRole, logout, userAvatarUrl, pendingVerifications, talentLMSUser, talentLMSCourses } = useAuth();
+  const { user, hasRole, logout, userAvatarUrl, pendingVerifications, talentLMSUser, talentLMSCourses, isImpersonating } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   // Auto-expand/collapse menus based on current route
@@ -392,7 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       flexDirection: 'column',
       height: '100dvh',
       overflow: 'hidden',
-      backgroundColor: '#ffffff',
+      backgroundColor: isImpersonating ? 'rgb(255, 244, 229)' : '#ffffff',
       position: 'relative'
     }}>
       {/* Header */}
@@ -616,7 +616,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               overflow: 'hidden',
               borderRight: '1px solid',
               borderColor: 'divider',
-              zIndex: 1500
+              zIndex: 1500,
+              backgroundColor: isImpersonating ? 'rgb(255, 244, 229)' : 'background.paper'
             },
           }}
         >
@@ -641,7 +642,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               left: 0,
               borderRight: '1px solid',
               borderColor: 'divider',
-              zIndex: 150
+              zIndex: 150,
+              backgroundColor: isImpersonating ? 'rgb(255, 244, 229)' : 'background.paper'
             },
           }}
         >

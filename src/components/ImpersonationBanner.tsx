@@ -47,12 +47,21 @@ export const ImpersonationBanner: React.FC = () => {
 
   const handleEndImpersonation = async () => {
     if (isEnding) return;
-    
+
     try {
       setIsEnding(true);
+      // Save the impersonated user ID before ending
+      const impersonatedUserId = user?._id || user?.id;
+
+      // End impersonation
       await endImpersonation();
-      // Redirect to system users after ending impersonation
-      window.location.href = '/system-users';
+
+      // Redirect to the impersonated user's detail page with full reload
+      if (impersonatedUserId) {
+        window.location.assign(`/users/${impersonatedUserId}#general`);
+      } else {
+        window.location.assign('/system-users');
+      }
     } catch (error) {
       console.error('Error terminando impersonación:', error);
       setIsEnding(false);

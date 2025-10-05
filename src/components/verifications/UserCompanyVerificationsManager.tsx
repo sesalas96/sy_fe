@@ -24,7 +24,12 @@ import {
   TextField,
   Tooltip,
   LinearProgress,
-  Badge
+  Badge,
+  useTheme,
+  useMediaQuery,
+  Card,
+  CardContent,
+  Divider
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -66,7 +71,9 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
   onRefresh
 }) => {
   const { hasRole } = useAuth();
-  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [companyVerifications, setCompanyVerifications] = useState<UserCompanyVerifications[]>([]);
@@ -495,39 +502,51 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
               sx={{ mb: 2 }}
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                  <BusinessIcon color="action" />
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6">
-                      {companyVerif.company.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                      <Chip
-                        label={companyVerif.company.role}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={getComplianceLabel(
-                          companyVerif.verifications.required === 0
-                            ? 'compliant'
-                            : companyVerif.complianceStatus
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  gap: 2,
+                  width: '100%',
+                  flexDirection: isMobile ? 'column' : 'row'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                    <BusinessIcon color="action" />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant={isMobile ? 'subtitle1' : 'h6'} sx={{ wordBreak: 'break-word' }}>
+                        {companyVerif.company.name}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={companyVerif.company.role}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          label={getComplianceLabel(
+                            companyVerif.verifications.required === 0
+                              ? 'compliant'
+                              : companyVerif.complianceStatus
+                          )}
+                          color={getComplianceColor(
+                            companyVerif.verifications.required === 0
+                              ? 'compliant'
+                              : companyVerif.complianceStatus
+                          )}
+                          size="small"
+                        />
+                        {companyVerif.verifications.pending > 0 && (
+                          <Badge badgeContent={companyVerif.verifications.pending} color="warning">
+                            <Chip label="Pendientes" size="small" color="warning" />
+                          </Badge>
                         )}
-                        color={getComplianceColor(
-                          companyVerif.verifications.required === 0
-                            ? 'compliant'
-                            : companyVerif.complianceStatus
-                        )}
-                        size="small"
-                      />
-                      {companyVerif.verifications.pending > 0 && (
-                        <Badge badgeContent={companyVerif.verifications.pending} color="warning">
-                          <Chip label="Pendientes" size="small" color="warning" />
-                        </Badge>
-                      )}
+                      </Box>
                     </Box>
                   </Box>
-                  <Box sx={{ textAlign: 'right' }}>
+                  <Box sx={{
+                    textAlign: isMobile ? 'left' : 'right',
+                    width: isMobile ? '100%' : 'auto',
+                    pl: isMobile ? 5 : 0
+                  }}>
                     <Typography variant="body2" color="text.secondary">
                       {companyVerif.verifications.completed} de {companyVerif.verifications.required} completados
                     </Typography>
@@ -535,7 +554,7 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                       <LinearProgress
                         variant="determinate"
                         value={(companyVerif.verifications.completed / companyVerif.verifications.required) * 100}
-                        sx={{ mt: 1, width: 100 }}
+                        sx={{ mt: 1, width: isMobile ? '100%' : 100 }}
                         color={getComplianceColor(companyVerif.complianceStatus)}
                       />
                     ) : (
@@ -554,7 +573,126 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                       No hay verificaciones configuradas para este espacio de trabajo
                     </Typography>
                   </Box>
+                ) : isMobile ? (
+                  // Vista móvil - Cards
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {companyVerif.verifications.details.map((verification) => (
+                      <Card key={verification.id} variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
+                            {getStatusIcon(verification.status)}
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle2" gutterBottom>
+                                {verification.name}
+                              </Typography>
+                              {verification.certificateNumber && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Cert: {verification.certificateNumber}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                            <Chip label={verification.type} size="small" variant="outlined" />
+                            <Chip
+                              label={verification.isRequired ? 'Requerido' : 'No requerido'}
+                              color={verification.isRequired ? 'primary' : 'default'}
+                              size="small"
+                              variant={verification.isRequired ? 'filled' : 'outlined'}
+                            />
+                            <Chip
+                              label={getStatusLabel(verification.status)}
+                              color={getStatusColor(verification.status)}
+                              size="small"
+                            />
+                          </Box>
+
+                          {verification.expiryDate && (
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Vencimiento:
+                              </Typography>
+                              <Typography variant="body2">
+                                {format(new Date(verification.expiryDate), 'dd/MM/yyyy', { locale: es })}
+                                {verification.status === 'approved' && (
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    color={getDaysUntilExpiry(verification.expiryDate) < 30 ? 'error' : 'text.secondary'}
+                                    sx={{ ml: 1 }}
+                                  >
+                                    ({getDaysUntilExpiry(verification.expiryDate)} días)
+                                  </Typography>
+                                )}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {canReviewVerifications && (
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {(verification.documentUrl || verification.documentoId) && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<ViewIcon />}
+                                  onClick={() => handleViewDetails(verification)}
+                                >
+                                  Ver
+                                </Button>
+                              )}
+                              {verification.status !== 'not_submitted' && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => handleUpdateClick(verification, companyVerif.company.id, companyVerif.company.name)}
+                                >
+                                  Editar
+                                </Button>
+                              )}
+                              {verification.status !== 'not_submitted' && verification.status !== 'approved' && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => handleDeleteClick(verification, companyVerif.company.name)}
+                                >
+                                  Eliminar
+                                </Button>
+                              )}
+                              {(verification.status === 'pending' || verification.status === 'in_review') && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="success"
+                                    startIcon={<ThumbUpIcon />}
+                                    onClick={() => handleReviewClick(verification, companyVerif.company.name, 'approve')}
+                                  >
+                                    Aprobar
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="error"
+                                    startIcon={<ThumbDownIcon />}
+                                    onClick={() => handleReviewClick(verification, companyVerif.company.name, 'reject')}
+                                  >
+                                    Rechazar
+                                  </Button>
+                                </>
+                              )}
+                            </Box>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
                 ) : (
+                  // Vista desktop - Tabla
                   <TableContainer component={Paper} variant="outlined">
                     <Table size="small">
                       <TableHead>

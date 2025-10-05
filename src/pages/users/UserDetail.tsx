@@ -491,12 +491,13 @@ export const UserDetail: React.FC = () => {
 
   const handleImpersonate = async () => {
     if (!user || !impersonateUser) return;
-    
+
     try {
       setImpersonating(true);
-      await impersonateUser(user._id || user.id || '');
-      // Navigate to dashboard after successful impersonation
-      navigate('/dashboard');
+      const userId = user._id || user.id || '';
+      await impersonateUser(userId);
+      // Navigate to user profile after successful impersonation
+      navigate(`/profile`);
     } catch (error) {
       console.error('Error impersonating user:', error);
       setError('Error al impersonar usuario');
@@ -1091,10 +1092,12 @@ export const UserDetail: React.FC = () => {
     if (location.state && (location.state as any).openCompanyVerificationsTab && user && !loading) {
       // Calculate the correct tab index for "Verificaciones de Empresa"
       const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
-      
+
       if (canViewCompanyVerifications) {
         // "Verificaciones de Empresa" is always at index 1 when visible
         setTabValue(1);
+        // Set the hash to match the tab
+        navigate(`#company-verifications`, { replace: true });
       }
     }
   }, [location.state, user, loading, hasRole]);
@@ -2488,11 +2491,30 @@ export const UserDetail: React.FC = () => {
                       onChange={handleCourseTabChange}
                       textColor="primary"
                       indicatorColor="primary"
-                      sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+                      variant={isMobile ? "scrollable" : "standard"}
+                      scrollButtons={isMobile ? "auto" : false}
+                      allowScrollButtonsMobile
+                      sx={{
+                        mb: 3,
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        '& .MuiTab-root': {
+                          minWidth: isMobile ? 'auto' : 160,
+                          fontSize: isMobile ? '0.75rem' : '0.875rem',
+                          px: isMobile ? 1.5 : 3
+                        }
+                      }}
                     >
-                      <Tab label="Información General" />
+                      <Tab label={isMobile ? "Info" : "Información General"} />
                       <Tab
-                        label={`Cursos del usuario ${(() => {
+                        label={isMobile ? `Mis Cursos ${(() => {
+                          const initialCount = userCourses?.initial?.length || 0;
+                          const additionalCount = userCourses?.additional?.length || 0;
+                          const enrollmentsCount = userCourses?.enrollments?.length || 0;
+                          const talentLMSCount = talentLMSUser?.courses?.length || 0;
+                          const total = initialCount + additionalCount + enrollmentsCount + talentLMSCount;
+                          return `(${total})`;
+                        })()}` : `Cursos del usuario ${(() => {
                           const initialCount = userCourses?.initial?.length || 0;
                           const additionalCount = userCourses?.additional?.length || 0;
                           const enrollmentsCount = userCourses?.enrollments?.length || 0;
@@ -2504,7 +2526,7 @@ export const UserDetail: React.FC = () => {
                         sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
                       />
                       <Tab
-                        label={`Cursos Disponibles (${getFilteredAvailableCourses().length})`}
+                        label={isMobile ? `Disponibles (${getFilteredAvailableCourses().length})` : `Cursos Disponibles (${getFilteredAvailableCourses().length})`}
                         disabled={!talentLMSUser}
                         sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
                       />
@@ -2780,14 +2802,22 @@ export const UserDetail: React.FC = () => {
                           <>
                             <Stack spacing={2}>
                               {talentLMSUser.courses.map((course: any) => (
-                                <Card key={course.id} variant="outlined" sx={{ 
-                                  borderColor: course.expired_on ? 'error.main' : 
-                                              course.completion_percentage === 100 ? 'success.main' : 
-                                              'divider' 
+                                <Card key={course.id} variant="outlined" sx={{
+                                  borderColor: course.expired_on ? 'error.main' :
+                                              course.completion_percentage === 100 ? 'success.main' :
+                                              'divider'
                                 }}>
                                   <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                      <Box sx={{ flex: 1 }}>
+                                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
+                                      {/* Avatar del curso */}
+                                      <Avatar
+                                        src={course.avatar || course.big_avatar || course.course_avatar || course.icon}
+                                        sx={{ width: 60, height: 60 }}
+                                      >
+                                        <SchoolIcon />
+                                      </Avatar>
+
+                                      <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="h6" gutterBottom>
                                           {course.name}
                                         </Typography>
@@ -2885,13 +2915,14 @@ export const UserDetail: React.FC = () => {
                                         </Box>
 
                                         {/* Action buttons */}
-                                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                                        <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
                                           <Button
                                             size="small"
                                             variant="contained"
                                             color="primary"
-                                            startIcon={<VisibilityIcon />}
+                                            startIcon={!isMobile && <VisibilityIcon />}
                                             onClick={() => handleGoToCourse(course.id)}
+                                            fullWidth={isMobile}
                                           >
                                             Ir al Curso
                                           </Button>
@@ -2899,8 +2930,9 @@ export const UserDetail: React.FC = () => {
                                             size="small"
                                             variant="outlined"
                                             color="error"
-                                            startIcon={<RemoveCircleOutlineIcon />}
+                                            startIcon={!isMobile && <RemoveCircleOutlineIcon />}
                                             onClick={() => handleUnenrollFromCourse(course.id)}
+                                            fullWidth={isMobile}
                                           >
                                             Desinscribir
                                           </Button>
@@ -2911,7 +2943,8 @@ export const UserDetail: React.FC = () => {
                                               variant="outlined"
                                               href={course.last_accessed_unit_url}
                                               target="_blank"
-                                              startIcon={<PlayArrowIcon />}
+                                              startIcon={!isMobile && <PlayArrowIcon />}
+                                              fullWidth={isMobile}
                                             >
                                               Continuar Curso
                                             </Button>
@@ -2921,7 +2954,8 @@ export const UserDetail: React.FC = () => {
                                               size="small"
                                               variant="contained"
                                               color="success"
-                                              startIcon={<DownloadIcon />}
+                                              startIcon={!isMobile && <DownloadIcon />}
+                                              fullWidth={isMobile}
                                             >
                                               Descargar Certificado
                                             </Button>
@@ -2955,71 +2989,74 @@ export const UserDetail: React.FC = () => {
                           <Grid size={{ xs: 12, md: 6 }} key={course.id}>
                             <Card variant="outlined">
                               <CardContent>
-                                <Box sx={{ display: 'flex', gap: 2 }}>
-                                  {/* Avatar del curso */}
-                                  <Avatar
-                                    src={course.avatar || course.big_avatar}
-                                    sx={{ width: 60, height: 60 }}
-                                  >
-                                    <SchoolIcon />
-                                  </Avatar>
-                                  
-                                  {/* Información del curso */}
-                                  <Box sx={{ flex: 1 }}>
-                                    <Typography variant="subtitle1" fontWeight="medium">
-                                      {course.name}
-                                    </Typography>
-                                    
-                                    {course.description && (
-                                      <Typography 
-                                        variant="body2" 
-                                        color="text.secondary"
-                                        sx={{ 
-                                          mt: 0.5,
-                                          display: '-webkit-box',
-                                          WebkitLineClamp: 2,
-                                          WebkitBoxOrient: 'vertical',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis'
-                                        }}
-                                        dangerouslySetInnerHTML={{ __html: course.description }}
-                                      />
-                                    )}
-                                    
-                                    <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-                                      {course.certification && (
-                                        <Chip
-                                          icon={<CertificationIcon />}
-                                          label={`Certificado: ${course.certification_duration || 'N/A'}`}
-                                          size="small"
-                                          color="success"
+                                <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
+                                  <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
+                                    {/* Avatar del curso */}
+                                    <Avatar
+                                      src={course.avatar || course.big_avatar}
+                                      sx={{ width: 60, height: 60 }}
+                                    >
+                                      <SchoolIcon />
+                                    </Avatar>
+
+                                    {/* Información del curso */}
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="subtitle1" fontWeight="medium">
+                                        {course.name}
+                                      </Typography>
+
+                                      {course.description && (
+                                        <Typography
+                                          variant="body2"
+                                          color="text.secondary"
+                                          sx={{
+                                            mt: 0.5,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                          }}
+                                          dangerouslySetInnerHTML={{ __html: course.description }}
                                         />
                                       )}
-                                      
-                                      {course.time_limit && course.time_limit !== "0" && (
+
+                                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                                        {course.certification && (
+                                          <Chip
+                                            icon={<CertificationIcon />}
+                                            label={`Certificado: ${course.certification_duration || 'N/A'}`}
+                                            size="small"
+                                            color="success"
+                                          />
+                                        )}
+
+                                        {course.time_limit && course.time_limit !== "0" && (
+                                          <Chip
+                                            icon={<AccessTimeIcon />}
+                                            label={`Límite: ${course.time_limit} horas`}
+                                            size="small"
+                                          />
+                                        )}
+
                                         <Chip
-                                          icon={<AccessTimeIcon />}
-                                          label={`Límite: ${course.time_limit} horas`}
+                                          label={course.status === 'active' ? 'Activo' : 'Inactivo'}
                                           size="small"
+                                          color={course.status === 'active' ? 'primary' : 'default'}
                                         />
-                                      )}
-                                      
-                                      <Chip
-                                        label={course.status === 'active' ? 'Activo' : 'Inactivo'}
-                                        size="small"
-                                        color={course.status === 'active' ? 'primary' : 'default'}
-                                      />
+                                      </Box>
                                     </Box>
                                   </Box>
-                                  
+
                                   {/* Acción */}
                                   {course.status === 'active' && (
-                                    <Box>
+                                    <Box sx={{ alignSelf: isMobile ? 'stretch' : 'flex-start' }}>
                                       <Button
                                         variant="contained"
                                         size="small"
-                                        startIcon={<AddIcon />}
+                                        startIcon={!isMobile && <AddIcon />}
                                         onClick={() => handleEnrollInCourse(course.id)}
+                                        fullWidth={isMobile}
                                       >
                                         Inscribirse
                                       </Button>

@@ -944,7 +944,6 @@ export const Users: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Usuario</TableCell>
-                <TableCell>Email</TableCell>
                 <TableCell>Espacios de Trabajo</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="center">Verificación</TableCell>
@@ -958,6 +957,11 @@ export const Users: React.FC = () => {
                     <Tooltip
                       title={
                         <Box>
+                          {user.email && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              <strong>Email:</strong> {user.email}
+                            </Typography>
+                          )}
                           {user.cedula && (
                             <Typography variant="body2" sx={{ mb: 0.5 }}>
                               <strong>Cédula:</strong> {user.cedula}
@@ -968,7 +972,7 @@ export const Users: React.FC = () => {
                               <strong>Teléfono:</strong> {user.phone}
                             </Typography>
                           )}
-                          {!user.cedula && !user.phone && (
+                          {!user.email && !user.cedula && !user.phone && (
                             <Typography variant="body2">
                               Sin información de contacto
                             </Typography>
@@ -977,18 +981,16 @@ export const Users: React.FC = () => {
                       }
                       placement="top"
                       arrow
-                      disableHoverListener={!user.cedula && !user.phone}
                     >
-                      <Typography 
-                        variant="body2" 
+                      <Typography
+                        variant="body2"
                         fontWeight="medium"
-                        sx={{ cursor: (user.cedula || user.phone) ? 'help' : 'default' }}
+                        sx={{ cursor: 'help' }}
                       >
                         {user.firstName} {user.lastName}
                       </Typography>
                     </Tooltip>
                   </TableCell>
-                  <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       {user.companies && user.companies.length > 0 ? (

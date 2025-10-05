@@ -39,7 +39,7 @@ import {
   Pause as PauseIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Company, UserRole } from '../../types';
 import { companyApi } from '../../services/companyApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -50,13 +50,14 @@ import CompanyUsers from './CompanyUsers';
 
 export const CompanyDetail: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const { hasRole } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   usePageTitle('Detalle de Espacios de Trabajo', 'Información detallada de la empresa');
-  
+
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -95,6 +96,53 @@ export const CompanyDetail: React.FC = () => {
 
   const handleEdit = () => {
     navigate(`/companies/${id}/edit`);
+  };
+
+  // Hash navigation functions
+  const getTabHash = (tabIndex: number): string => {
+    const hashMap: { [key: number]: string } = {
+      0: 'information',
+      1: 'departments',
+      2: 'verifications',
+      3: 'users'
+    };
+    return hashMap[tabIndex] || 'information';
+  };
+
+  const getTabIndexFromHash = (hash: string): number => {
+    const indexMap: { [key: string]: number } = {
+      'information': 0,
+      'departments': 1,
+      'verifications': 2,
+      'users': 3
+    };
+    const cleanHash = hash.replace('#', '');
+    return indexMap[cleanHash] !== undefined ? indexMap[cleanHash] : 0;
+  };
+
+  // Leer hash de la URL al cargar
+  useEffect(() => {
+    if (location.hash && company) {
+      const tabIndex = getTabIndexFromHash(location.hash);
+      if (tabIndex !== tabValue) {
+        setTabValue(tabIndex);
+      }
+    }
+  }, [location.hash, company]);
+
+  // Establecer el hash inicial si no existe
+  useEffect(() => {
+    if (!location.hash && company) {
+      const hash = getTabHash(tabValue);
+      navigate(`#${hash}`, { replace: true });
+    }
+  }, [company]);
+
+  // Actualizar hash cuando cambie el tab
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+    const hash = getTabHash(newValue);
+    navigate(`#${hash}`, { replace: true });
   };
 
   const handleStatusChange = async () => {
@@ -236,7 +284,7 @@ export const CompanyDetail: React.FC = () => {
       }}>
         <Tabs
           value={tabValue}
-          onChange={(_, newValue) => setTabValue(newValue)}
+          onChange={handleTabChange}
           variant={isMobile ? "scrollable" : "standard"}
           scrollButtons={isMobile ? "auto" : false}
           allowScrollButtonsMobile

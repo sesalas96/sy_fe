@@ -197,12 +197,13 @@ export const CompanyUserDetail: React.FC = () => {
 
   const handleImpersonate = async () => {
     if (!user || !impersonateUser) return;
-    
+
     try {
       setImpersonating(true);
-      await impersonateUser(user._id || user.id || '');
-      // Navigate to dashboard after successful impersonation
-      navigate('/dashboard');
+      const userId = user._id || user.id || '';
+      await impersonateUser(userId);
+      // Navigate to user profile after successful impersonation
+      navigate(`/profile`);
     } catch (error) {
       console.error('Error impersonating user:', error);
       setError('Error al impersonar usuario');
