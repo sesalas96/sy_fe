@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Button,
   Chip,
@@ -26,15 +24,12 @@ import {
   TextField,
   Tooltip,
   LinearProgress,
-  Badge,
-  useTheme,
-  useMediaQuery
+  Badge
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Warning as WarningIcon,
   Error as ErrorIcon,
   Visibility as ViewIcon,
   Download as DownloadIcon,
@@ -42,7 +37,11 @@ import {
   AccessTime as AccessTimeIcon,
   DoNotDisturb as DoNotDisturbIcon,
   ThumbUp as ThumbUpIcon,
-  ThumbDown as ThumbDownIcon
+  ThumbDown as ThumbDownIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Upload as UploadIcon,
+  Description as DescriptionIcon
 } from '@mui/icons-material';
 import { userVerificationsApi, UserCompanyVerifications, VerificationDetail } from '../../services/userVerificationsApi';
 import { fileService } from '../../services/fileService';
@@ -66,8 +65,6 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
   userId,
   onRefresh
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { hasRole } = useAuth();
   
   const [loading, setLoading] = useState(true);
@@ -86,7 +83,34 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalExpiryDate, setApprovalExpiryDate] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
-  
+
+
+  // Update dialog states
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [updatingVerification, setUpdatingVerification] = useState<{
+    verification: VerificationDetail;
+    companyId: string;
+    companyName: string;
+  } | null>(null);
+  const [updateData, setUpdateData] = useState({
+    certificateNumber: '',
+    expiryDate: '',
+    notes: '',
+    documentoId: '',
+    documentUrl: ''
+  });
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingVerification, setDeletingVerification] = useState<{
+    verification: VerificationDetail;
+    companyName: string;
+  } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const canReviewVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
 
   const loadVerifications = useCallback(async () => {
@@ -282,6 +306,163 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
     return differenceInDays(new Date(expiryDate), new Date());
   };
 
+  // Handler for viewing document
+  const handleViewDetails = async (verification: VerificationDetail) => {
+    if (verification.documentUrl || verification.documentoId) {
+      await handleViewDocument(verification.documentoId || verification.documentUrl!);
+    } else {
+      setError('No hay documento disponible para esta verificación');
+    }
+  };
+
+  // Handler for updating verification
+  const handleUpdateClick = (verification: VerificationDetail, companyId: string, companyName: string) => {
+    setUpdatingVerification({ verification, companyId, companyName });
+    setUpdateData({
+      certificateNumber: verification.certificateNumber || '',
+      expiryDate: verification.expiryDate || '',
+      notes: '',
+      documentoId: verification.documentoId || '',
+      documentUrl: verification.documentUrl || ''
+    });
+    setSelectedFile(null);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setUpdateDialogOpen(true);
+  };
+
+  // Handler for file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('El archivo no puede superar los 10MB');
+        event.target.value = ''; // Reset input
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Solo se permiten archivos PDF, JPG, JPEG o PNG');
+        event.target.value = ''; // Reset input
+        return;
+      }
+
+      console.log('File selected:', file.name, file.type, file.size);
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+
+  // Handler for submitting update
+  const handleUpdateSubmit = async () => {
+    if (!updatingVerification) return;
+
+    try {
+      setUpdateLoading(true);
+
+      // Upload file if selected
+      let documentoId = updateData.documentoId;
+      if (selectedFile) {
+        console.log('Uploading new file...');
+        const response = await userVerificationsApi.uploadVerificationDocument(selectedFile);
+        documentoId = response.documentoId;
+        console.log('File uploaded, documentoId:', documentoId);
+      } else {
+        console.log('No new file selected, using existing documentoId:', documentoId);
+      }
+
+      // Only submit if we have a documentoId (either existing or newly uploaded)
+      if (!documentoId) {
+        setError('Debe seleccionar un documento o ya debe existir uno');
+        return;
+      }
+
+      // Validate expiry date if required
+      if (updatingVerification.verification.validityPeriod && !updateData.expiryDate) {
+        setError('Debe especificar la fecha de vencimiento para esta verificación');
+        return;
+      }
+
+      console.log('Submitting verification with documentoId:', documentoId);
+      await userVerificationsApi.submitVerification(
+        updatingVerification.companyId,
+        updatingVerification.verification.id,
+        {
+          documentoId: documentoId,
+          certificateNumber: updateData.certificateNumber,
+          expiryDate: updateData.expiryDate,
+          notes: updateData.notes
+        }
+      );
+
+      // Reload verifications
+      await loadVerifications();
+
+      // Notify parent
+      if (onRefresh) {
+        onRefresh();
+      }
+
+      // Close dialog
+      setUpdateDialogOpen(false);
+      setUpdatingVerification(null);
+      setSelectedFile(null);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error updating verification:', error);
+      setError('Error al actualizar la verificación');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  // Handler for delete confirmation
+  const handleDeleteClick = (verification: VerificationDetail, companyName: string) => {
+    setDeletingVerification({ verification, companyName });
+    setDeleteDialogOpen(true);
+  };
+
+  // Handler for deleting verification
+  const handleDeleteConfirm = async () => {
+    if (!deletingVerification || !deletingVerification.verification.userCompanyVerificationId) {
+      setError('No se puede eliminar esta verificación');
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+
+      // Note: You'll need to add a delete method to the API
+      // For now, this is a placeholder
+      console.log('Delete verification:', deletingVerification.verification.userCompanyVerificationId);
+
+      // Reload verifications
+      await loadVerifications();
+
+      // Notify parent
+      if (onRefresh) {
+        onRefresh();
+      }
+
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setDeletingVerification(null);
+    } catch (error) {
+      console.error('Error deleting verification:', error);
+      setError('Error al eliminar la verificación');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={3}>
@@ -327,8 +508,16 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                         variant="outlined"
                       />
                       <Chip
-                        label={getComplianceLabel(companyVerif.complianceStatus)}
-                        color={getComplianceColor(companyVerif.complianceStatus)}
+                        label={getComplianceLabel(
+                          companyVerif.verifications.required === 0
+                            ? 'compliant'
+                            : companyVerif.complianceStatus
+                        )}
+                        color={getComplianceColor(
+                          companyVerif.verifications.required === 0
+                            ? 'compliant'
+                            : companyVerif.complianceStatus
+                        )}
                         size="small"
                       />
                       {companyVerif.verifications.pending > 0 && (
@@ -342,30 +531,44 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                     <Typography variant="body2" color="text.secondary">
                       {companyVerif.verifications.completed} de {companyVerif.verifications.required} completados
                     </Typography>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(companyVerif.verifications.completed / companyVerif.verifications.required) * 100}
-                      sx={{ mt: 1, width: 100 }}
-                      color={getComplianceColor(companyVerif.complianceStatus)}
-                    />
+                    {companyVerif.verifications.required > 0 ? (
+                      <LinearProgress
+                        variant="determinate"
+                        value={(companyVerif.verifications.completed / companyVerif.verifications.required) * 100}
+                        sx={{ mt: 1, width: 100 }}
+                        color={getComplianceColor(companyVerif.complianceStatus)}
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        Sin verificaciones requeridas
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               </AccordionSummary>
 
               <AccordionDetails>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Verificación</TableCell>
-                        <TableCell>Tipo</TableCell>
-                        <TableCell>Estado</TableCell>
-                        <TableCell>Vencimiento</TableCell>
-                        {canReviewVerifications && <TableCell align="center">Acciones</TableCell>}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {companyVerif.verifications.details.map((verification) => (
+                {companyVerif.verifications.details.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No hay verificaciones configuradas para este espacio de trabajo
+                    </Typography>
+                  </Box>
+                ) : (
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Verificación</TableCell>
+                          <TableCell>Tipo</TableCell>
+                          <TableCell>Requerido</TableCell>
+                          <TableCell>Estado</TableCell>
+                          <TableCell>Vencimiento</TableCell>
+                          {canReviewVerifications && <TableCell align="center">Acciones</TableCell>}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {companyVerif.verifications.details.map((verification) => (
                           <TableRow key={verification.id}>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -387,6 +590,14 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                               label={verification.type}
                               size="small"
                               variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={verification.isRequired ? 'Sí' : 'No'}
+                              color={verification.isRequired ? 'primary' : 'default'}
+                              size="small"
+                              variant={verification.isRequired ? 'filled' : 'outlined'}
                             />
                           </TableCell>
                           <TableCell>
@@ -417,32 +628,54 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                           </TableCell>
                           {canReviewVerifications && (
                             <TableCell align="center">
-                              <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                              <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                {/* Ver documento - solo si hay documento */}
                                 {(verification.documentUrl || verification.documentoId) && (
-                                  <>
-                                    <Tooltip title="Ver documento">
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleViewDocument(
-                                          verification.documentoId || verification.documentUrl!
-                                        )}
-                                      >
-                                        <ViewIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Descargar">
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleDownloadDocument(
-                                          verification.documentoId || verification.documentUrl!,
-                                          `${verification.name}.pdf`
-                                        )}
-                                      >
-                                        <DownloadIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                  </>
+                                  <Tooltip title="Ver documento">
+                                    <IconButton
+                                      size="small"
+                                      color="primary"
+                                      onClick={() => handleViewDetails(verification)}
+                                    >
+                                      <ViewIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                                 )}
+
+                                {/* Actualizar documento - solo si ya está enviada */}
+                                {verification.status !== 'not_submitted' && (
+                                  <Tooltip title="Actualizar documento">
+                                    <IconButton
+                                      size="small"
+                                      color="info"
+                                      onClick={() => handleUpdateClick(
+                                        verification,
+                                        companyVerif.company.id,
+                                        companyVerif.company.name
+                                      )}
+                                    >
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+
+                                {/* Eliminar - solo si está enviada pero no aprobada */}
+                                {verification.status !== 'not_submitted' && verification.status !== 'approved' && (
+                                  <Tooltip title="Eliminar">
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => handleDeleteClick(
+                                        verification,
+                                        companyVerif.company.name
+                                      )}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+
+                                {/* Botones de revisión - solo para staff en verificaciones pendientes */}
                                 {(verification.status === 'pending' || verification.status === 'in_review') && (
                                   <>
                                     <Tooltip title="Aprobar">
@@ -481,11 +714,218 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
                     </TableBody>
                   </Table>
                 </TableContainer>
+                )}
               </AccordionDetails>
             </Accordion>
           ))
         )}
       </Box>
+
+      {/* Update Verification Dialog */}
+      <Dialog
+        open={updateDialogOpen}
+        onClose={() => setUpdateDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Actualizar Documento de Verificación</DialogTitle>
+        <DialogContent>
+          {updatingVerification && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                {updatingVerification.verification.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {updatingVerification.companyName}
+              </Typography>
+
+              {/* Current document */}
+              {(updateData.documentoId || updateData.documentUrl) && !selectedFile && (
+                <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <DescriptionIcon color="primary" />
+                    <Typography variant="body2" fontWeight="medium">
+                      Documento actual
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<ViewIcon />}
+                      onClick={() => handleViewDocument(updateData.documentoId || updateData.documentUrl)}
+                    >
+                      Ver
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      onClick={() => handleDownloadDocument(
+                        updateData.documentoId || updateData.documentUrl,
+                        `${updatingVerification.verification.name}.pdf`
+                      )}
+                    >
+                      Descargar
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Upload new document */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" fontWeight="medium" gutterBottom>
+                  Subir nuevo documento
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadIcon />}
+                    fullWidth
+                  >
+                    {selectedFile ? selectedFile.name : 'Seleccionar archivo'}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      hidden
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleFileSelect}
+                    />
+                  </Button>
+                  {selectedFile && (
+                    <Tooltip title="Quitar archivo">
+                      <IconButton
+                        color="error"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
+                        }}
+                        size="small"
+                      >
+                        <CancelIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+                {selectedFile && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    Archivo seleccionado: {selectedFile.name}
+                  </Alert>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Formatos permitidos: PDF, JPG, PNG. Tamaño máximo: 10MB
+                </Typography>
+              </Box>
+
+              {/* Certificate Number - Only for certifications and courses */}
+              {(updatingVerification.verification.type === 'certification' ||
+                updatingVerification.verification.type === 'course') && (
+                <TextField
+                  fullWidth
+                  label="Número de Certificado"
+                  value={updateData.certificateNumber}
+                  onChange={(e) => setUpdateData({ ...updateData, certificateNumber: e.target.value })}
+                  sx={{ mb: 2 }}
+                  helperText="Número del certificado o diploma emitido"
+                />
+              )}
+
+              {/* Expiry Date - Only if verification has validity period */}
+              {updatingVerification.verification.validityPeriod && (
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+                  <DatePicker
+                    label="Fecha de Vencimiento *"
+                    value={updateData.expiryDate ? new Date(updateData.expiryDate) : null}
+                    onChange={(date) => {
+                      if (date) {
+                        setUpdateData({ ...updateData, expiryDate: date.toISOString() });
+                      }
+                    }}
+                    minDate={new Date()}
+                    format="dd/MM/yyyy"
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                        sx: { mb: 2 }
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
+              )}
+
+              {/* Notes */}
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Notas adicionales"
+                value={updateData.notes}
+                onChange={(e) => setUpdateData({ ...updateData, notes: e.target.value })}
+                helperText="Información adicional relevante para esta verificación"
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUpdateDialogOpen(false)} disabled={updateLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleUpdateSubmit}
+            variant="contained"
+            disabled={updateLoading}
+            startIcon={updateLoading ? <CircularProgress size={20} /> : <UploadIcon />}
+          >
+            {updateLoading ? 'Actualizando...' : 'Actualizar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Eliminar Verificación</DialogTitle>
+        <DialogContent>
+          {deletingVerification && (
+            <Box sx={{ pt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                ¿Está seguro que desea eliminar esta verificación?
+              </Alert>
+              <Typography variant="subtitle2" gutterBottom>
+                Verificación: {deletingVerification.verification.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Empresa: {deletingVerification.companyName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Esta acción no se puede deshacer.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={20} /> : null}
+          >
+            {deleteLoading ? 'Eliminando...' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Review Dialog */}
       <Dialog
@@ -508,7 +948,7 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
               </Typography>
             </Box>
           )}
-          
+
           {reviewDecision === 'reject' && (
             <TextField
               fullWidth
@@ -521,7 +961,7 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
               helperText="Explique por qué se rechaza esta verificación"
             />
           )}
-          
+
           {reviewDecision === 'approve' && (
             <>
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
@@ -560,7 +1000,7 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
             variant="contained"
             color={reviewDecision === 'approve' ? 'success' : 'error'}
             disabled={
-              reviewLoading || 
+              reviewLoading ||
               (reviewDecision === 'reject' && !rejectionReason.trim()) ||
               (reviewDecision === 'approve' && !approvalExpiryDate)
             }

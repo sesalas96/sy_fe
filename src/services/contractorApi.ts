@@ -208,20 +208,6 @@ export const contractorApi = {
     return apiCall('DELETE', `/contractors/${id}/additional-courses/${courseId}`);
   },
 
-  // Get contractor verification data
-  getVerification: async (id: string): Promise<ApiResponse<any>> => {
-    return apiCall('GET', `/
-      api/contractors/${id}/verification`);
-  },
-
-  // Update contractor verification status
-  updateVerification: async (id: string, data: {
-    status: 'verified' | 'rejected';
-    rejectionReason?: string;
-  }): Promise<ApiResponse<any>> => {
-    return apiCall('PUT', `/api/contractors/${id}/verification`, data);
-  },
-
   // Get contractor evaluations
   getEvaluations: async (id: string): Promise<ApiResponse<any>> => {
     return apiCall('GET', `/api/contractors/${id}/evaluations`);

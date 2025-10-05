@@ -1,9 +1,0 @@
-{
-  "name": "safety-app-scripts",
-  "version": "1.0.0",
-  "description": "Scripts para gestión de datos de Safety App",
-  "dependencies": {
-    "mongoose": "^7.0.0",
-    "bcrypt": "^5.1.0"
-  }
-}

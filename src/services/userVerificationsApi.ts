@@ -71,6 +71,7 @@ export interface UserCompanyVerifications {
 }
 
 export interface SubmitVerificationData {
+  documentoId?: string;
   documentUrl?: string;
   certificateNumber?: string;
   expiryDate?: string;
@@ -164,12 +165,12 @@ class UserVerificationsApi {
   }
 
   // Upload document for verification
-  async uploadVerificationDocument(file: File): Promise<{ url: string }> {
+  async uploadVerificationDocument(file: File): Promise<{ documentoId: string; url?: string }> {
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await fetch(`${API_BASE_URL}/api/upload/verification-document`, {
         method: 'POST',
         headers: {
@@ -177,12 +178,12 @@ class UserVerificationsApi {
         },
         body: formData
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
         throw new Error(errorData.message || 'Upload failed');
       }
-      
+
       return response.json();
     } catch (error) {
       console.error('Error uploading verification document:', error);

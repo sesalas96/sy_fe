@@ -523,8 +523,24 @@ export const Users: React.FC = () => {
   const getVerificationStatus = (user: User) => {
     // Use real data from verificationSummary
     if (user.verificationSummary) {
-      const { globalCompliance } = user.verificationSummary;
-      
+      const { globalCompliance, totalCompanies, compliantCompanies, details } = user.verificationSummary;
+
+      // Si no hay empresas (0 de 0), se considera que cumple
+      if (totalCompanies === 0 && compliantCompanies === 0) {
+        return { status: 'verified', label: 'Cumple', color: 'success' as const };
+      }
+
+      // Si solo tiene la compañía "Particular" sin verificaciones requeridas, se considera verificado
+      if (
+        totalCompanies === 1 &&
+        details &&
+        details.length === 1 &&
+        details[0].companyName === 'Particular' &&
+        details[0].verificationsTotal === 0
+      ) {
+        return { status: 'verified', label: 'Cumple', color: 'success' as const };
+      }
+
       if (globalCompliance === 'compliant') {
         return { status: 'verified', label: 'Cumple', color: 'success' as const };
       } else if (globalCompliance === 'partial') {

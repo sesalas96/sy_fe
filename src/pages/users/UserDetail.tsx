@@ -322,18 +322,12 @@ export const UserDetail: React.FC = () => {
 
   const loadContractorDataFromAPI = useCallback(async (userId: string) => {
     try {
-      // Cargar verificación
-      const verificationResponse = await contractorApi.getVerification(userId);
-      if (verificationResponse.success && verificationResponse.data) {
-        setVerificationInfo(verificationResponse.data);
-      }
-
       // Cargar certificaciones
       const certificationsResponse = await contractorApi.getCertifications(userId);
       if (certificationsResponse.success && certificationsResponse.data) {
         setCertifications(certificationsResponse.data);
       }
-      
+
       // El historial de acceso se cargará mediante el useEffect cuando se actualice el user
     } catch (error) {
       console.error('Error loading contractor data:', error);
@@ -348,6 +342,24 @@ export const UserDetail: React.FC = () => {
       UserRole.CONTRATISTA_SUBALTERNOS,
       UserRole.CONTRATISTA_HUERFANO
     ].includes(role);
+  }, []);
+
+  // Helper para calcular el estado de verificación real considerando "Particular"
+  const getEffectiveComplianceStatus = useCallback((verificationSummary: any) => {
+    if (!verificationSummary) return null;
+
+    // Si solo tiene la compañía "Particular" sin verificaciones requeridas, se considera verificado
+    if (
+      verificationSummary.totalCompanies === 1 &&
+      verificationSummary.details &&
+      verificationSummary.details.length === 1 &&
+      verificationSummary.details[0].companyName === 'Particular' &&
+      verificationSummary.details[0].verificationsTotal === 0
+    ) {
+      return 'compliant';
+    }
+
+    return verificationSummary.globalCompliance;
   }, []);
 
   const loadUserData = useCallback(async () => {
@@ -703,6 +715,7 @@ export const UserDetail: React.FC = () => {
   };
 
   const handleCourseTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    console.log('Tab change requested:', newValue, 'Current:', courseTabValue, 'TalentLMS user:', !!talentLMSUser);
     setCourseTabValue(newValue);
   };
 
@@ -775,13 +788,16 @@ export const UserDetail: React.FC = () => {
 
   const checkTalentLMSUser = useCallback(async () => {
     if (!user?.email) return;
-    
+
     setCheckingTalentLMS(true);
     try {
       const response = await coursesApi.searchTalentLMSUser({ email: user.email });
+      console.log('TalentLMS search response:', response);
       if (response.success && response.data) {
+        console.log('TalentLMS user found:', response.data);
         setTalentLMSUser(response.data);
       } else {
+        console.log('TalentLMS user not found');
         setTalentLMSUser(null);
       }
     } catch (error) {
@@ -836,7 +852,11 @@ export const UserDetail: React.FC = () => {
       try {
         const availableCoursesResponse = await coursesApi.getTalentLMSAvailableCourses();
         if (availableCoursesResponse.success && availableCoursesResponse.data) {
-          setAvailableCourses(availableCoursesResponse.data);
+          // Filtrar solo cursos activos
+          const activeCourses = availableCoursesResponse.data.filter((course: any) =>
+            course.status === 'active' || course.status === 'Active' || !course.status
+          );
+          setAvailableCourses(activeCourses);
         }
       } catch (error) {
         console.error('Error loading available courses:', error);
@@ -1062,6 +1082,20 @@ export const UserDetail: React.FC = () => {
     }
   }, [location.state, user, loading, hasRole]);
 
+  // Reset course tab to "Información General" if user is not registered in TalentLMS
+  useEffect(() => {
+    console.log('Course tab validation - TalentLMS user:', !!talentLMSUser, 'Tab value:', courseTabValue);
+    if (!talentLMSUser && courseTabValue > 0) {
+      console.log('Resetting to tab 0 - no TalentLMS user');
+      setCourseTabValue(0);
+    }
+    // If talentLMSUser exists and tab value is invalid (> 2), reset to 0
+    if (talentLMSUser && courseTabValue > 2) {
+      console.log('Resetting to tab 0 - invalid tab value');
+      setCourseTabValue(0);
+    }
+  }, [talentLMSUser, courseTabValue]);
+
   // Load reviews when evaluations tab is selected
   useEffect(() => {
     if (user) {
@@ -1132,8 +1166,16 @@ export const UserDetail: React.FC = () => {
           message: 'Usuario registrado exitosamente en TalentLMS',
           severity: 'success'
         });
-        // Reload TalentLMS user info
-        await checkTalentLMSUser();
+
+        // Si la respuesta incluye los datos del usuario, usarlos directamente
+        if (response.data) {
+          setTalentLMSUser(response.data);
+        } else {
+          // Si no, esperar un momento y luego buscar el usuario
+          setTimeout(async () => {
+            await checkTalentLMSUser();
+          }, 1000);
+        }
       }
     } catch (error: any) {
       console.error('Error signing up to TalentLMS:', error);
@@ -1150,30 +1192,13 @@ export const UserDetail: React.FC = () => {
 
   const handleSaveVerification = async () => {
     if (!user || !verificationStatus) return;
-    
-    try {
-      const response = await contractorApi.updateVerification(user._id, {
-        status: verificationStatus as 'verified' | 'rejected',
-        rejectionReason: verificationStatus === 'rejected' ? rejectionReason : undefined
-      });
-      
-      if (response.success) {
-        setSnackbar({
-          open: true,
-          message: 'Estado de verificación actualizado',
-          severity: 'success'
-        });
-        setVerificationDialogOpen(false);
-        // Recargar datos
-        await loadContractorDataFromAPI(user._id);
-      }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Error al actualizar verificación',
-        severity: 'error'
-      });
-    }
+
+    setSnackbar({
+      open: true,
+      message: 'Esta funcionalidad ha sido removida. Use el sistema de verificaciones de usuarios.',
+      severity: 'info'
+    });
+    setVerificationDialogOpen(false);
   };
 
   const handleViewDocument = async (fileId: string, fileName: string) => {
@@ -1833,12 +1858,12 @@ export const UserDetail: React.FC = () => {
                   {isContractor(user.role) && user.verificationSummary && (
                     <ListItem>
                       <ListItemIcon>
-                        <VerifiedIcon 
+                        <VerifiedIcon
                           color={
-                            user.verificationSummary.globalCompliance === 'compliant' ? "success" : 
-                            user.verificationSummary.globalCompliance === 'partial' ? "warning" : 
+                            getEffectiveComplianceStatus(user.verificationSummary) === 'compliant' ? "success" :
+                            getEffectiveComplianceStatus(user.verificationSummary) === 'partial' ? "warning" :
                             "action"
-                          } 
+                          }
                         />
                       </ListItemIcon>
                       <ListItemText
@@ -1848,13 +1873,13 @@ export const UserDetail: React.FC = () => {
                             <Chip
                               size="small"
                               label={
-                                user.verificationSummary.globalCompliance === 'compliant' ? "Conforme" : 
-                                user.verificationSummary.globalCompliance === 'partial' ? "Parcialmente Conforme" : 
+                                getEffectiveComplianceStatus(user.verificationSummary) === 'compliant' ? "Conforme" :
+                                getEffectiveComplianceStatus(user.verificationSummary) === 'partial' ? "Parcialmente Conforme" :
                                 "No Conforme"
                               }
                               color={
-                                user.verificationSummary.globalCompliance === 'compliant' ? "success" : 
-                                user.verificationSummary.globalCompliance === 'partial' ? "warning" : 
+                                getEffectiveComplianceStatus(user.verificationSummary) === 'compliant' ? "success" :
+                                getEffectiveComplianceStatus(user.verificationSummary) === 'partial' ? "warning" :
                                 "error"
                               }
                             />
@@ -2069,23 +2094,23 @@ export const UserDetail: React.FC = () => {
                     </Typography>
                     <Chip
                       icon={
-                        user.verificationSummary.globalCompliance === 'compliant' 
-                          ? <CheckCircleIcon /> 
-                          : user.verificationSummary.globalCompliance === 'partial' 
-                          ? <WarningIcon /> 
+                        getEffectiveComplianceStatus(user.verificationSummary) === 'compliant'
+                          ? <CheckCircleIcon />
+                          : getEffectiveComplianceStatus(user.verificationSummary) === 'partial'
+                          ? <WarningIcon />
                           : <CancelIcon />
                       }
                       label={
-                        user.verificationSummary.globalCompliance === 'compliant'
+                        getEffectiveComplianceStatus(user.verificationSummary) === 'compliant'
                           ? 'Conforme'
-                          : user.verificationSummary.globalCompliance === 'partial'
+                          : getEffectiveComplianceStatus(user.verificationSummary) === 'partial'
                           ? 'Parcialmente Conforme'
                           : 'No Conforme'
                       }
                       color={
-                        user.verificationSummary.globalCompliance === 'compliant'
+                        getEffectiveComplianceStatus(user.verificationSummary) === 'compliant'
                           ? 'success'
-                          : user.verificationSummary.globalCompliance === 'partial'
+                          : getEffectiveComplianceStatus(user.verificationSummary) === 'partial'
                           ? 'warning'
                           : 'error'
                       }
@@ -2357,10 +2382,24 @@ export const UserDetail: React.FC = () => {
                 ) : (
                   <>
                     {/* Tabs para Información General, Mis Cursos y Cursos Disponibles */}
-                    <Tabs value={courseTabValue} onChange={handleCourseTabChange} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+                    <Tabs
+                      value={courseTabValue}
+                      onChange={handleCourseTabChange}
+                      textColor="primary"
+                      indicatorColor="primary"
+                      sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+                    >
                       <Tab label="Información General" />
-                      <Tab label={`Cursos del usuario ${userCourses ? `(${(userCourses.initial?.length || 0) + (userCourses.additional?.length || 0) + (userCourses.enrollments?.length || 0)})` : ''}`} />
-                      <Tab label={`Cursos Disponibles ${availableCourses ? `(${availableCourses.length})` : ''}`} />
+                      <Tab
+                        label={`Cursos del usuario ${userCourses ? `(${(userCourses.initial?.length || 0) + (userCourses.additional?.length || 0) + (userCourses.enrollments?.length || 0)})` : '(0)'}`}
+                        disabled={!talentLMSUser}
+                        sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
+                      />
+                      <Tab
+                        label={`Cursos Disponibles ${availableCourses ? `(${availableCourses.length})` : '(0)'}`}
+                        disabled={!talentLMSUser}
+                        sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
+                      />
                     </Tabs>
                   </>
                 )}
@@ -2440,10 +2479,10 @@ export const UserDetail: React.FC = () => {
                 )}
 
                 {/* Tab Panel 1: Mis Cursos */}
-                {courseTabValue === 1 && (
+                {courseTabValue === 1 && talentLMSUser && (
                   <>
-                    {(userCourses && (userCourses.initial?.length > 0 || userCourses.additional?.length > 0)) || 
-                     (talentLMSUser && talentLMSUser.courses && talentLMSUser.courses.length > 0) ? (
+                    {(userCourses && (userCourses.initial?.length > 0 || userCourses.additional?.length > 0)) ||
+                     (talentLMSUser.courses && talentLMSUser.courses.length > 0) ? (
                       <Stack spacing={3}>
                         {/* Cursos Iniciales */}
                         {userCourses.initial?.length > 0 && (
@@ -2764,7 +2803,7 @@ export const UserDetail: React.FC = () => {
                 )}
 
                 {/* Tab Panel 2: Cursos Disponibles */}
-                {courseTabValue === 2 && (
+                {courseTabValue === 2 && talentLMSUser && (
                   <>
                     {availableCourses && availableCourses.length > 0 ? (
                       <Grid container spacing={2}>
