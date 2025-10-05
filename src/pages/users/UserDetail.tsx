@@ -42,7 +42,8 @@ import {
   TablePagination,
   CircularProgress,
   LinearProgress,
-  Divider
+  Divider,
+  Tooltip
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -81,7 +82,8 @@ import {
   FullscreenExit as FullscreenExitIcon,
   CameraAlt as CameraIcon,
   PhotoLibrary as PhotoLibraryIcon,
-  RemoveCircleOutline as RemoveCircleOutlineIcon
+  RemoveCircleOutline as RemoveCircleOutlineIcon,
+  ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { User, UserRole } from '../../types';
@@ -170,20 +172,9 @@ export const UserDetail: React.FC = () => {
   
   // Estados para contratistas
   const [verificationInfo, setVerificationInfo] = useState<VerificationInfo | null>(null);
-  const [certifications, setCertifications] = useState<Certification[]>([]);
-  
+
   // Estados para diálogos
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
-  const [certificationDialogOpen, setCertificationDialogOpen] = useState(false);
-  const [newCertification, setNewCertification] = useState({
-    type: '',
-    name: '',
-    issuedBy: '',
-    issueDate: '',
-    expiryDate: '',
-    certificateNumber: '',
-    documentUrl: ''
-  });
   
   // Estados para formularios
   const [verificationStatus, setVerificationStatus] = useState<string>('');
@@ -205,6 +196,7 @@ export const UserDetail: React.FC = () => {
   const [userCourses, setUserCourses] = useState<any>(null);
   const [talentLMSUser, setTalentLMSUser] = useState<any>(null);
   const [signingUpToTalentLMS, setSigningUpToTalentLMS] = useState(false);
+  const [loginKeyUsed, setLoginKeyUsed] = useState(false);
   
   // Estados para documentos
   const [userDocuments, setUserDocuments] = useState<any[]>([]);
@@ -416,33 +408,6 @@ export const UserDetail: React.FC = () => {
           }
         ]
       });
-
-      setCertifications([
-        {
-          id: '1',
-          type: 'trabajo_altura',
-          name: 'Trabajo en Altura',
-          issuedBy: 'Instituto de Seguridad',
-          issueDate: '2023-06-15',
-          expiryDate: '2025-06-15',
-          certificateNumber: 'TA-2023-123',
-          verified: true,
-          verifiedBy: 'Safety Staff',
-          verifiedAt: new Date('2023-06-20')
-        },
-        {
-          id: '2',
-          type: 'primeros_auxilios',
-          name: 'Primeros Auxilios',
-          issuedBy: 'Cruz Roja',
-          issueDate: '2023-09-01',
-          expiryDate: '2024-09-01',
-          certificateNumber: 'PA-2023-456',
-          verified: true,
-          verifiedBy: 'Safety Staff',
-          verifiedAt: new Date('2023-09-05')
-        }
-      ]);
     } catch (err) {
       console.error('Error loading contractor data:', err);
     }
@@ -2539,7 +2504,7 @@ export const UserDetail: React.FC = () => {
                         sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
                       />
                       <Tab
-                        label={`Cursos Disponibles ${availableCourses ? `(${availableCourses.length})` : '(0)'}`}
+                        label={`Cursos Disponibles (${getFilteredAvailableCourses().length})`}
                         disabled={!talentLMSUser}
                         sx={{ display: talentLMSUser ? 'inline-flex' : 'none' }}
                       />
@@ -2589,10 +2554,53 @@ export const UserDetail: React.FC = () => {
                             </Grid>
                             {talentLMSUser.login_key && (
                               <Grid size={12}>
-                                <Typography variant="body2" color="text.secondary">Login Key</Typography>
-                                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                  {talentLMSUser.login_key}
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="body2" color="text.secondary">Login Key (Solo sirve para un acceso)</Typography>
+                                    {loginKeyUsed ? (
+                                      <Typography variant="body1" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                                        Link usado
+                                      </Typography>
+                                    ) : (
+                                      <Link
+                                        href={talentLMSUser.login_key}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setLoginKeyUsed(true)}
+                                        sx={{
+                                          fontFamily: 'monospace',
+                                          fontSize: '0.875rem',
+                                          wordBreak: 'break-all',
+                                          display: 'inline-block',
+                                          textDecoration: 'none',
+                                          '&:hover': {
+                                            textDecoration: 'underline'
+                                          }
+                                        }}
+                                      >
+                                        {talentLMSUser.login_key}
+                                      </Link>
+                                    )}
+                                  </Box>
+                                  {!loginKeyUsed && (
+                                    <Tooltip title="Copiar al portapapeles">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(talentLMSUser.login_key);
+                                          setSnackbar({
+                                            open: true,
+                                            message: 'Login Key copiado al portapapeles (solo sirve para un acceso)',
+                                            severity: 'success'
+                                          });
+                                        }}
+                                        sx={{ alignSelf: 'flex-start' }}
+                                      >
+                                        <ContentCopyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  )}
+                                </Box>
                               </Grid>
                             )}
                           </Grid>
@@ -2939,9 +2947,11 @@ export const UserDetail: React.FC = () => {
                 {/* Tab Panel 2: Cursos Disponibles */}
                 {courseTabValue === 2 && talentLMSUser && (
                   <>
-                    {availableCourses && availableCourses.length > 0 ? (
-                      <Grid container spacing={2}>
-                        {availableCourses.map((course: any) => (
+                    {(() => {
+                      const filteredCourses = getFilteredAvailableCourses();
+                      return filteredCourses.length > 0 ? (
+                        <Grid container spacing={2}>
+                          {filteredCourses.map((course: any) => (
                           <Grid size={{ xs: 12, md: 6 }} key={course.id}>
                             <Card variant="outlined">
                               <CardContent>
@@ -3025,7 +3035,8 @@ export const UserDetail: React.FC = () => {
                       <Alert severity="info">
                         No hay cursos disponibles en este momento.
                       </Alert>
-                    )}
+                    );
+                    })()}
                   </>
                 )}
               </CardContent>
@@ -3186,114 +3197,6 @@ export const UserDetail: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Certificaciones Section - Only for Contractors */}
-          {isContractor(user.role) && (
-            <Grid size={12}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6">
-                      Certificaciones Especiales
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => setCertificationDialogOpen(true)}
-                      size="small"
-                    >
-                      Agregar Certificación
-                    </Button>
-                  </Box>
-
-                  {certifications.length === 0 ? (
-                    <Alert severity="info">
-                      No hay certificaciones registradas
-                    </Alert>
-                  ) : (
-                    <Grid container spacing={2}>
-                      {certifications.map((cert) => (
-                        <Grid size={{ xs: 12, md: 6 }} key={cert.id}>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <CertificationIcon color="primary" />
-                                  <Typography variant="h6">
-                                    {cert.name}
-                                  </Typography>
-                                </Box>
-                                {cert.verified && (
-                                  <Chip
-                                    icon={<VerifiedIcon />}
-                                    label="Verificado"
-                                    color="success"
-                                    size="small"
-                                  />
-                                )}
-                              </Box>
-
-                              <Grid container spacing={1}>
-                                <Grid size={12}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Emitido por: <strong>{cert.issuedBy}</strong>
-                                  </Typography>
-                                </Grid>
-                                <Grid size={12}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Número: <strong>{cert.certificateNumber}</strong>
-                                  </Typography>
-                                </Grid>
-                                <Grid size={6}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Emisión: {formatDate(cert.issueDate)}
-                                  </Typography>
-                                </Grid>
-                                <Grid size={6}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Vence: {formatDate(cert.expiryDate)}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-
-                              {cert.verified && cert.verifiedBy && (
-                                <Box sx={{ mt: 2, p: 1, bgcolor: 'success.50', borderRadius: 1 }}>
-                                  <Typography variant="caption" color="success.dark">
-                                    Verificado por {cert.verifiedBy} el {formatDate(cert.verifiedAt!)}
-                                  </Typography>
-                                </Box>
-                              )}
-
-                              <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                                {cert.documentUrl && (
-                                  <Button
-                                    size="small"
-                                    startIcon={<VisibilityIcon />}
-                                    variant="outlined"
-                                  >
-                                    Ver
-                                  </Button>
-                                )}
-                                {!cert.verified && canEditUser() && (
-                                  <Button
-                                    size="small"
-                                    startIcon={<VerifiedIcon />}
-                                    variant="outlined"
-                                    color="success"
-                                  >
-                                    Verificar
-                                  </Button>
-                                )}
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
         </Grid>
       </TabPanel>
 
@@ -3434,184 +3337,6 @@ export const UserDetail: React.FC = () => {
       /> */}
 
       {/* Snackbar */}
-      {/* Certification Dialog */}
-      <Dialog
-        open={certificationDialogOpen}
-        onClose={() => setCertificationDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CertificationIcon color="primary" />
-            Certificaciones Especiales
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {user.firstName} {user.lastName}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            {/* Lista de certificaciones existentes */}
-            {certifications.length > 0 && (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Certificaciones Actuales
-                </Typography>
-                <Grid container spacing={2}>
-                  {certifications.map((cert, index) => (
-                    <Grid size={{ xs: 12, md: 6 }} key={index}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <BadgeIcon color="primary" sx={{ mr: 1 }} />
-                            <Typography variant="subtitle1" fontWeight="medium">
-                              {cert.name}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Emitido por: {cert.issuedBy}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Número: {cert.certificateNumber}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Vigente hasta: {formatDate(cert.expiryDate)}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            )}
-
-            {/* Formulario para nueva certificación */}
-            <Typography variant="h6" gutterBottom>
-              Agregar Nueva Certificación
-            </Typography>
-            
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Tipo de Certificación</InputLabel>
-                  <Select
-                    value={newCertification.type}
-                    onChange={(e) => setNewCertification(prev => ({ ...prev, type: e.target.value }))}
-                    label="Tipo de Certificación"
-                  >
-                    <MenuItem value="jefe_mina">Jefe de Mina</MenuItem>
-                    <MenuItem value="supervisor_seguridad">Supervisor de Seguridad</MenuItem>
-                    <MenuItem value="operador_montacargas">Operador de Montacargas</MenuItem>
-                    <MenuItem value="trabajo_altura">Trabajo en Altura</MenuItem>
-                    <MenuItem value="espacios_confinados">Espacios Confinados</MenuItem>
-                    <MenuItem value="primeros_auxilios">Primeros Auxilios</MenuItem>
-                    <MenuItem value="manejo_sustancias_peligrosas">Manejo de Sustancias Peligrosas</MenuItem>
-                    <MenuItem value="otro">Otro</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Nombre de la Certificación"
-                  value={newCertification.name}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </Grid>
-              
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Emitido por"
-                  value={newCertification.issuedBy}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, issuedBy: e.target.value }))}
-                />
-              </Grid>
-              
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Número de Certificado"
-                  value={newCertification.certificateNumber}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, certificateNumber: e.target.value }))}
-                />
-              </Grid>
-              
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="Fecha de Emisión"
-                  value={newCertification.issueDate}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, issueDate: e.target.value }))}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-              
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="Fecha de Vencimiento"
-                  value={newCertification.expiryDate}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, expiryDate: e.target.value }))}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-              
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="URL del Documento (opcional)"
-                  value={newCertification.documentUrl}
-                  onChange={(e) => setNewCertification(prev => ({ ...prev, documentUrl: e.target.value }))}
-                  placeholder="https://ejemplo.com/certificado.pdf"
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCertificationDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={async () => {
-              try {
-                // TODO: Implementar lógica para guardar la certificación
-
-                setCertificationDialogOpen(false);
-                setNewCertification({
-                  type: '',
-                  name: '',
-                  issuedBy: '',
-                  issueDate: '',
-                  expiryDate: '',
-                  certificateNumber: '',
-                  documentUrl: ''
-                });
-                setSnackbar({
-                  open: true,
-                  message: 'Certificación agregada exitosamente',
-                  severity: 'success'
-                });
-              } catch (error) {
-                setSnackbar({
-                  open: true,
-                  message: 'Error al agregar certificación',
-                  severity: 'error'
-                });
-              }
-            }}
-            disabled={!newCertification.name || !newCertification.issuedBy}
-          >
-            Agregar Certificación
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Diálogo de Documentos */}
       <Dialog
