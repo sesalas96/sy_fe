@@ -22,6 +22,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  fullName?: string;
   name?: string;
   phone?: string; // Added direct phone property
   cedula?: string;

@@ -109,9 +109,9 @@ export const SafetyStaffProfile: React.FC = () => {
                       onClick={() => setAvatarModalOpen(true)}
                     >
                       <Avatar
-                        sx={{ 
-                          width: 80, 
-                          height: 80, 
+                        sx={{
+                          width: 80,
+                          height: 80,
                           bgcolor: userAvatarUrl ? 'transparent' : 'warning.main',
                           transition: 'opacity 0.2s',
                           border: !userAvatarUrl ? '2px dashed' : 'none',
@@ -119,7 +119,10 @@ export const SafetyStaffProfile: React.FC = () => {
                         }}
                         src={userAvatarUrl || undefined}
                       >
-                        {!userAvatarUrl && (userAvatarUrl ? 'SS' : <PhotoIcon sx={{ fontSize: 40 }} />)}
+                        {!userAvatarUrl && (user?.firstName && user?.lastName
+                          ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                          : <PhotoIcon sx={{ fontSize: 40 }} />
+                        )}
                       </Avatar>
                       {loading && (
                         <Box sx={{
@@ -142,11 +145,11 @@ export const SafetyStaffProfile: React.FC = () => {
                 </Tooltip>
                 <Box>
                   <Typography variant="h6" color="warning.dark">
-                    {user?.name}
+                    {user?.fullName || `${user?.firstName} ${user?.lastName}`}
                   </Typography>
-                  <Chip 
-                    label="SAFETY STAFF" 
-                    color="warning" 
+                  <Chip
+                    label="SAFETY STAFF"
+                    color="warning"
                     size="small"
                     sx={{ mb: 1 }}
                   />
@@ -157,25 +160,51 @@ export const SafetyStaffProfile: React.FC = () => {
               </Box>
 
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="Nombre del Especialista"
-                    value={user?.name || ''}
+                    label="Nombre"
+                    value={user?.firstName || ''}
+                    disabled
                   />
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="Email Operacional"
+                    label="Apellido"
+                    value={user?.lastName || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Email"
                     value={user?.email || ''}
+                    disabled
                   />
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="Número de Licencia"
-                    value="SS-2024-0234"
+                    label="Teléfono"
+                    value={user?.phone || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Cédula"
+                    value={user?.cedula || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Estado"
+                    value={user?.isActive ? 'Activo' : 'Inactivo'}
                     disabled
                   />
                 </Grid>

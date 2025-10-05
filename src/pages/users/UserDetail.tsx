@@ -1108,17 +1108,17 @@ export const UserDetail: React.FC = () => {
       // Calculate the correct tab index for "Evaluaciones"
       // Base tabs: ['Información General'] = 0
       let evaluationTabIndex = 0;
-      
+
       // Add 1 if "Verificaciones de Empresa" tab is present (at index 1)
       const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
       if (canViewCompanyVerifications) {
         evaluationTabIndex = 1;
       }
-      
+
       // Then we have: 'Cursos', 'Documentos', 'Historial', 'Evaluaciones'
       // Evaluaciones is 4 positions after
       evaluationTabIndex += 4;
-      
+
       // Set the tab to the evaluations tab
       setTabValue(evaluationTabIndex);
     }
@@ -1144,13 +1144,13 @@ export const UserDetail: React.FC = () => {
       // Calculate evaluations tab index
       // Base tabs: ['Información General'] = 0
       let evaluationTabIndex = 0;
-      
+
       // Add 1 if "Verificaciones de Empresa" tab is present (at index 1)
       const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
       if (canViewCompanyVerifications) {
         evaluationTabIndex = 1;
       }
-      
+
       // Then we have: 'Cursos', 'Documentos', 'Historial', 'Evaluaciones'
       // Evaluaciones is 4 positions after the verification tab (or 4 after general info if no verification)
       evaluationTabIndex += 4;
@@ -1692,16 +1692,16 @@ export const UserDetail: React.FC = () => {
   }
 
   let tabLabels = ['Información General'];
-  
+
   // Add Company Verifications tab for safety staff and admins in second position
   const canViewCompanyVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
   if (canViewCompanyVerifications) {
     tabLabels.push('Verificaciones de Empresa');
   }
-  
+
   // Add the rest of the tabs
   tabLabels.push('Cursos', 'Documentos', 'Historial', 'Evaluaciones');
-  
+
   // Agregar tab "Verificarme" si el usuario tiene verificaciones pendientes
   // y es el usuario viendo su propio perfil
   if (userHasPendingVerifications && currentUser && user && currentUser._id === user._id) {
@@ -3088,25 +3088,48 @@ export const UserDetail: React.FC = () => {
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  justifyContent: 'space-between',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  gap: 2,
+                  mb: 3
+                }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                    }}
+                  >
                     <FolderIcon color="primary" />
                     Documentos del Usuario
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Chip 
-                      label={`${userDocuments.length} documentos`} 
-                      color="primary" 
+                  <Box sx={{
+                    display: 'flex',
+                    gap: 1,
+                    alignItems: 'center',
+                    width: { xs: '100%', sm: 'auto' },
+                    flexWrap: 'wrap'
+                  }}>
+                    <Chip
+                      label={`${userDocuments.length} documento${userDocuments.length !== 1 ? 's' : ''}`}
+                      color="primary"
                       size="small"
                     />
                     {canEditUser() && (
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<CloudUploadIcon />}
+                        startIcon={!isMobile && <CloudUploadIcon />}
                         onClick={() => setDocumentDialogOpen(true)}
+                        fullWidth={isMobile}
+                        sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
                       >
-                        Agregar Documento
+                        {isMobile ? 'Agregar' : 'Agregar Documento'}
                       </Button>
                     )}
                   </Box>
@@ -3174,11 +3197,16 @@ export const UserDetail: React.FC = () => {
                                 </Box>
                               </Box>
                               <Box sx={{ mt: 2 }}>
-                                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                <Box sx={{
+                                  display: 'flex',
+                                  flexDirection: { xs: 'column', sm: 'row' },
+                                  gap: 1,
+                                  mb: 1
+                                }}>
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    startIcon={<VisibilityIcon />}
+                                    startIcon={!isMobile && <VisibilityIcon />}
                                     onClick={() => handleViewDocument(doc.id, doc.originalName)}
                                     fullWidth
                                   >
@@ -3187,7 +3215,7 @@ export const UserDetail: React.FC = () => {
                                   <Button
                                     size="small"
                                     variant="outlined"
-                                    startIcon={<DownloadIcon />}
+                                    startIcon={!isMobile && <DownloadIcon />}
                                     onClick={() => handleDownloadDocument(doc.id, doc.originalName)}
                                     fullWidth
                                   >
@@ -3195,12 +3223,16 @@ export const UserDetail: React.FC = () => {
                                   </Button>
                                 </Box>
                                 {canEditUser() && (
-                                  <Box sx={{ display: 'flex', gap: 1 }}>
+                                  <Box sx={{
+                                    display: 'flex',
+                                    flexDirection: { xs: 'column', sm: 'row' },
+                                    gap: 1
+                                  }}>
                                     <Button
                                       size="small"
                                       variant="outlined"
                                       color="primary"
-                                      startIcon={<RefreshIcon />}
+                                      startIcon={!isMobile && <RefreshIcon />}
                                       onClick={() => {
                                         setSelectedDocument(doc);
                                         setDocumentType(doc.fieldName);
@@ -3214,7 +3246,7 @@ export const UserDetail: React.FC = () => {
                                       size="small"
                                       variant="outlined"
                                       color="error"
-                                      startIcon={<DeleteIcon />}
+                                      startIcon={!isMobile && <DeleteIcon />}
                                       onClick={() => handleDeleteDocument(doc.id, doc.originalName)}
                                       fullWidth
                                     >

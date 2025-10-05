@@ -96,9 +96,9 @@ export const SuperAdminProfile: React.FC = () => {
                       onClick={() => setAvatarModalOpen(true)}
                     >
                       <Avatar
-                        sx={{ 
-                          width: 80, 
-                          height: 80, 
+                        sx={{
+                          width: 80,
+                          height: 80,
                           bgcolor: userAvatarUrl ? 'transparent' : 'error.main',
                           transition: 'opacity 0.2s',
                           border: !userAvatarUrl ? '2px dashed' : 'none',
@@ -106,7 +106,10 @@ export const SuperAdminProfile: React.FC = () => {
                         }}
                         src={userAvatarUrl || undefined}
                       >
-                        {!userAvatarUrl && (userAvatarUrl ? 'SA' : <PhotoIcon sx={{ fontSize: 40 }} />)}
+                        {!userAvatarUrl && (user?.firstName && user?.lastName
+                          ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                          : <PhotoIcon sx={{ fontSize: 40 }} />
+                        )}
                       </Avatar>
                       {loading && (
                         <Box sx={{
@@ -129,11 +132,11 @@ export const SuperAdminProfile: React.FC = () => {
                 </Tooltip>
                 <Box>
                   <Typography variant="h6" color="error">
-                    {user?.name}
+                    {user?.fullName || `${user?.firstName} ${user?.lastName}`}
                   </Typography>
-                  <Chip 
-                    label="Administrador" 
-                    color="error" 
+                  <Chip
+                    label="Administrador"
+                    color="error"
                     size="small"
                     sx={{ mb: 1 }}
                   />
@@ -144,27 +147,51 @@ export const SuperAdminProfile: React.FC = () => {
               </Box>
 
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="Nombre de Administrador"
-                    value={user?.name || ''}
+                    label="Nombre"
+                    value={user?.firstName || ''}
                     disabled
                   />
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="Email Administrativo"
+                    label="Apellido"
+                    value={user?.lastName || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Email"
                     value={user?.email || ''}
                     disabled
                   />
                 </Grid>
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
-                    label="ID de Sesión Admin"
-                    value="SA-2024-001"
+                    label="Teléfono"
+                    value={user?.phone || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Cédula"
+                    value={user?.cedula || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Estado"
+                    value={user?.isActive ? 'Activo' : 'Inactivo'}
                     disabled
                   />
                 </Grid>

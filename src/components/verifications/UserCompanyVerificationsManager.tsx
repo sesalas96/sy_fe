@@ -29,7 +29,8 @@ import {
   useMediaQuery,
   Card,
   CardContent,
-  Divider
+  Divider,
+  Snackbar
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -118,20 +119,28 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Snackbar state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
   const canReviewVerifications = hasRole([UserRole.SAFETY_STAFF, UserRole.SUPER_ADMIN]);
 
-  const loadVerifications = useCallback(async () => {
+  const loadVerifications = useCallback(async (keepExpanded: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const data = await userVerificationsApi.getUserVerifications(userId);
       setCompanyVerifications(data);
-      
-      // Auto-expand first non-compliant company
-      const firstNonCompliant = data.find(cv => cv.complianceStatus !== 'compliant');
-      if (firstNonCompliant) {
-        setExpandedCompany(firstNonCompliant.company.id);
+
+      // Only auto-expand if not keeping the current expansion state
+      if (!keepExpanded) {
+        // Auto-expand first non-compliant company
+        const firstNonCompliant = data.find(cv => cv.complianceStatus !== 'compliant');
+        if (firstNonCompliant) {
+          setExpandedCompany(firstNonCompliant.company.id);
+        }
       }
     } catch (error) {
       console.error('Error loading verifications:', error);
@@ -259,28 +268,40 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
 
     try {
       setReviewLoading(true);
-      
+
       await userVerificationsApi.reviewVerification(
         reviewingVerification.userVerificationId,
         reviewDecision,
         reviewDecision === 'reject' ? rejectionReason : undefined,
         reviewDecision === 'approve' ? approvalExpiryDate : undefined
       );
-      
-      // Reload verifications
-      await loadVerifications();
-      
+
+      // Show success message
+      setSnackbarMessage(
+        reviewDecision === 'approve'
+          ? 'Verificación aprobada exitosamente'
+          : 'Verificación rechazada exitosamente'
+      );
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+
+      // Close dialog
+      setReviewDialogOpen(false);
+      setReviewingVerification(null);
+
+      // Reload verifications, keeping the current accordion expanded
+      await loadVerifications(true);
+
       // Notify parent
       if (onRefresh) {
         onRefresh();
       }
-      
-      // Close dialog
-      setReviewDialogOpen(false);
-      setReviewingVerification(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error reviewing verification:', error);
-      setError('Error al revisar la verificación');
+      const errorMessage = error.response?.data?.message || error.message || 'Error al revisar la verificación';
+      setSnackbarMessage(errorMessage);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     } finally {
       setReviewLoading(false);
     }
@@ -375,28 +396,38 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
       // Upload file if selected
       let documentoId = updateData.documentoId;
       if (selectedFile) {
-        console.log('Uploading new file...');
-        const response = await userVerificationsApi.uploadVerificationDocument(selectedFile);
-        documentoId = response.documentoId;
-        console.log('File uploaded, documentoId:', documentoId);
+        console.log('Uploading file:', selectedFile.name);
+        const uploadResponse = await fileService.uploadFile(selectedFile);
+        console.log('Upload response:', uploadResponse);
+
+        if (!uploadResponse.success) {
+          throw new Error(uploadResponse.message || 'Error al subir el archivo');
+        }
+
+        documentoId = uploadResponse.fileId;
+        console.log('File uploaded successfully, ID:', documentoId);
       } else {
         console.log('No new file selected, using existing documentoId:', documentoId);
       }
 
       // Only submit if we have a documentoId (either existing or newly uploaded)
       if (!documentoId) {
-        setError('Debe seleccionar un documento o ya debe existir uno');
+        setSnackbarMessage('Debe seleccionar un documento o ya debe existir uno');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
         return;
       }
 
       // Validate expiry date if required
       if (updatingVerification.verification.validityPeriod && !updateData.expiryDate) {
-        setError('Debe especificar la fecha de vencimiento para esta verificación');
+        setSnackbarMessage('Debe especificar la fecha de vencimiento para esta verificación');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
         return;
       }
 
       console.log('Submitting verification with documentoId:', documentoId);
-      await userVerificationsApi.submitVerification(
+      const response = await userVerificationsApi.submitVerification(
         updatingVerification.companyId,
         updatingVerification.verification.id,
         {
@@ -407,15 +438,14 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
         }
       );
 
-      // Reload verifications
-      await loadVerifications();
+      console.log('Submit response:', response);
 
-      // Notify parent
-      if (onRefresh) {
-        onRefresh();
-      }
+      // Show success message
+      setSnackbarMessage('Verificación actualizada exitosamente');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
 
-      // Close dialog
+      // Close dialog first
       setUpdateDialogOpen(false);
       setUpdatingVerification(null);
       setSelectedFile(null);
@@ -423,9 +453,20 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
+
+      // Reload verifications after closing dialog, keeping the current accordion expanded
+      await loadVerifications(true);
+
+      // Notify parent
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error: any) {
       console.error('Error updating verification:', error);
-      setError('Error al actualizar la verificación');
+      const errorMessage = error.response?.data?.message || error.message || 'Error al actualizar la verificación';
+      setSnackbarMessage(errorMessage);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
     } finally {
       setUpdateLoading(false);
     }
@@ -1148,6 +1189,23 @@ export const UserCompanyVerificationsManager: React.FC<UserCompanyVerificationsM
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
