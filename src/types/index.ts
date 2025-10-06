@@ -320,6 +320,19 @@ export interface SyncOperation {
   initiatedBy: string; // User ID
 }
 
+export interface LinkedUser {
+  _id: string;
+  user: string | {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  role: 'principal' | 'support';
+  addedAt: string;
+  addedBy: string;
+}
+
 export interface WorkPermit {
   _id: string;
   permitNumber: string;
@@ -332,6 +345,7 @@ export interface WorkPermit {
     _id: string;
     name: string;
   };
+  linkedUsers?: LinkedUser[];
   workDescription: string;
   location: string;
   startDate: string;

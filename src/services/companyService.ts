@@ -20,7 +20,7 @@ const apiCall = async (endpoint: string, options: RequestInit = {}): Promise<any
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, config);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -283,7 +283,7 @@ export class CompanyService {
    */
   static async getCompaniesForSelect(): Promise<{ id: string; name: string }[]> {
     try {
-      const response = await apiCall('/companies/select');
+      const response = await apiCall('/api/companies/select');
       // Map _id to id for consistency with frontend expectations
       return response.data.map((company: any) => ({
         id: company._id || company.id,

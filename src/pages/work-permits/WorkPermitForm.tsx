@@ -36,7 +36,11 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  FormHelperText
+  FormHelperText,
+  Avatar,
+  ListItemAvatar,
+  ListItemButton,
+  InputAdornment
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -44,11 +48,17 @@ import {
   Error as ErrorIcon,
   Warning as WarningIcon,
   Add as AddIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  PersonAdd as PersonAddIcon,
+  Group as GroupIcon,
+  Person as PersonIcon,
+  Search as SearchIcon,
+  LocationOn as LocationOnIcon,
+  Route as RouteIcon,
+  MyLocation as MyLocationIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import WorkPermitApi, { WorkPermitCreateData } from '../../services/workPermitApi';
-import { ContractorService } from '../../services/contractorService';
 import { CompanyService } from '../../services/companyService';
 import { DepartmentService } from '../../services/departmentService';
 import { workPermitTemplateApi, WorkPermitTemplate, TemplateForm } from '../../services/workPermitTemplateApi';
@@ -56,13 +66,47 @@ import { formsApi, Form } from '../../services/formsApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 
+interface LocationPoint {
+  name: string;
+  description?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+    altitude?: number;
+  };
+  floor?: string;
+  area?: string;
+  reference?: string;
+}
+
+interface LocationData {
+  type: 'point' | 'route' | 'area';
+  generalArea?: string;
+  point?: LocationPoint;
+  route?: {
+    name: string;
+    description?: string;
+    distance?: number;
+    estimatedTime?: number;
+    points: LocationPoint[];
+  };
+  notes?: string;
+}
+
 interface WorkPermitFormData {
   templateId?: string;
   category: string;
   companyId: string;
-  contractorId: string;
+  contractorId?: string; // Opcional, se deriva del primer linkedUser
+  linkedUsers: Array<{
+    userId: string;
+    role: 'principal' | 'support' | 'observer';
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  }>;
   workDescription: string;
-  location: string;
+  location: LocationData;
   startDate: string;
   endDate: string;
   workHoursStart: string;
@@ -86,8 +130,13 @@ const initialFormData: WorkPermitFormData = {
   category: '',
   companyId: '',
   contractorId: '',
+  linkedUsers: [],
   workDescription: '',
-  location: '',
+  location: {
+    type: 'area',
+    generalArea: '',
+    notes: ''
+  },
   startDate: '',
   endDate: '',
   workHoursStart: '08:00',
@@ -219,18 +268,28 @@ export const WorkPermitForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [submitError, setSubmitError] = useState<string>('');
-  const [contractors, setContractors] = useState<Array<{ id: string; name: string; cedula: string }>>([]);
   const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([]);
   const [departments, setDepartments] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [templates, setTemplates] = useState<WorkPermitTemplate[]>([]);
-  const [loadingContractors, setLoadingContractors] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateFormsDetail, setTemplateFormsDetail] = useState<Form[]>([]);
   const [loadingForms, setLoadingForms] = useState(false);
   const [addFormDialog, setAddFormDialog] = useState(false);
   const [availableForms, setAvailableForms] = useState<Form[]>([]);
   const [selectedFormsToAdd, setSelectedFormsToAdd] = useState<string[]>([]);
-  
+
+  // User selection state
+  const [userSelectionOpen, setUserSelectionOpen] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<Array<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    department?: string;
+  }>>([]);
+  const [selectedUserRole, setSelectedUserRole] = useState<'principal' | 'support' | 'observer'>('support');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -265,12 +324,10 @@ export const WorkPermitForm: React.FC = () => {
 
   useEffect(() => {
     if (formData.companyId) {
-      loadContractorsByCompany(formData.companyId);
       loadDepartmentsByCompany(formData.companyId);
     } else {
-      setContractors([]);
       setDepartments([]);
-      setFormData(prev => ({ ...prev, contractorId: '', requiredApprovals: [] }));
+      setFormData(prev => ({ ...prev, requiredApprovals: [] }));
     }
   }, [formData.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -299,25 +356,6 @@ export const WorkPermitForm: React.FC = () => {
     }
   };
 
-  const loadContractorsByCompany = async (companyId: string) => {
-    try {
-      setLoadingContractors(true);
-      const contractorsList = await ContractorService.getContractors({ 
-        companyId,
-        status: 'active' 
-      });
-      setContractors(contractorsList.map(c => ({
-        id: c.id,
-        name: c.fullName,
-        cedula: c.cedula
-      })));
-    } catch (error) {
-      console.error('Error loading contractors:', error);
-      showSnackbar('Error al cargar los contratistas', 'error');
-    } finally {
-      setLoadingContractors(false);
-    }
-  };
 
   const loadDepartmentsByCompany = async (companyId: string) => {
     try {
@@ -344,8 +382,30 @@ export const WorkPermitForm: React.FC = () => {
           category: permit.category || '',
           companyId: permit.company?._id || '',
           contractorId: permit.contractor?._id || '',
+          linkedUsers: (permit as any).linkedUsers?.map((lu: any) => ({
+            userId: typeof lu.user === 'string' ? lu.user : lu.user._id,
+            role: lu.role,
+            firstName: typeof lu.user === 'object' ? lu.user.firstName : '',
+            lastName: typeof lu.user === 'object' ? lu.user.lastName : '',
+            email: typeof lu.user === 'object' ? lu.user.email : ''
+          })) || [],
           workDescription: permit.workDescription,
-          location: permit.location,
+          location: (() => {
+            // Convertir location string legacy a objeto
+            if (typeof permit.location === 'string') {
+              return { type: 'area' as const, generalArea: permit.location, notes: '' };
+            }
+            // Convertir location con type 'simple' a 'area'
+            if (permit.location && permit.location.type === 'simple') {
+              return {
+                type: 'area' as const,
+                generalArea: (permit.location as any).simpleLocation || permit.location.generalArea || '',
+                notes: permit.location.notes || ''
+              };
+            }
+            // Usar location object tal como está
+            return permit.location || { type: 'area' as const, generalArea: '', notes: '' };
+          })(),
           startDate: new Date(permit.startDate).toISOString().split('T')[0],
           endDate: new Date(permit.endDate).toISOString().split('T')[0],
           workHoursStart: permit.workHours?.start || '08:00',
@@ -421,7 +481,9 @@ export const WorkPermitForm: React.FC = () => {
         }
         
         if (template.defaultLocation) {
-          newFormData.location = template.defaultLocation;
+          newFormData.location = typeof template.defaultLocation === 'string'
+            ? { type: 'area', generalArea: template.defaultLocation, notes: '' }
+            : template.defaultLocation;
         }
         
         if (template.identifiedRisks && Array.isArray(template.identifiedRisks)) {
@@ -566,12 +628,21 @@ export const WorkPermitForm: React.FC = () => {
     switch (step) {
       case 0: // Información General
         if (!formData.companyId) newErrors.companyId = 'Debe seleccionar una empresa';
-        if (!formData.contractorId) newErrors.contractorId = 'Debe seleccionar un contratista';
+        if (formData.linkedUsers.length === 0) newErrors.linkedUsers = 'Debe agregar al menos un usuario al permiso';
         if (!formData.category) newErrors.category = 'Debe seleccionar una categoría de trabajo';
         if (!formData.workDescription.trim()) newErrors.workDescription = 'La descripción es obligatoria';
         if (formData.workDescription.length < 10) newErrors.workDescription = 'La descripción debe tener al menos 10 caracteres';
         if (formData.workDescription.length > 500) newErrors.workDescription = 'La descripción no puede exceder 500 caracteres';
-        if (!formData.location.trim()) newErrors.location = 'La ubicación es obligatoria';
+
+        // Validar ubicación según el tipo
+        if (formData.location.type === 'area' && !formData.location.generalArea?.trim()) {
+          newErrors.location = 'El área general es obligatoria';
+        } else if (formData.location.type === 'point' && !formData.location.point?.name?.trim()) {
+          newErrors.location = 'Debe especificar el nombre del punto';
+        } else if (formData.location.type === 'route' && (!formData.location.route?.name?.trim() || !formData.location.route?.points || formData.location.route.points.length === 0)) {
+          newErrors.location = 'Debe especificar el nombre de la ruta y al menos un punto';
+        }
+
         if (!formData.startDate) newErrors.startDate = 'La fecha de inicio es obligatoria';
         if (!formData.endDate) newErrors.endDate = 'La fecha de fin es obligatoria';
         
@@ -669,6 +740,82 @@ export const WorkPermitForm: React.FC = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  // User management functions
+  const handleOpenUserSelection = async () => {
+    setUserSelectionOpen(true);
+    setUserSearchTerm('');
+    setSelectedUserRole('support');
+
+    // Load available users if company is selected
+    if (formData.companyId) {
+      try {
+        const response = await WorkPermitApi.getAvailableUsersByCompany(formData.companyId);
+        const users = response.data.map((u: any) => ({
+          _id: u._id || u.userId,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          department: u.department?.name || u.role
+        }));
+        setAvailableUsers(users);
+      } catch (error: any) {
+        console.error('Error loading available users:', error);
+        showSnackbar('Error al cargar los usuarios disponibles', 'error');
+      }
+    }
+  };
+
+  const handleCloseUserSelection = () => {
+    setUserSelectionOpen(false);
+    setUserSearchTerm('');
+  };
+
+  const handleAddUser = (userId: string) => {
+    const user = availableUsers.find(u => u._id === userId);
+    if (user && !formData.linkedUsers.some(u => u.userId === userId)) {
+      setFormData(prev => ({
+        ...prev,
+        linkedUsers: [
+          ...prev.linkedUsers,
+          {
+            userId: user._id,
+            role: selectedUserRole,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email
+          }
+        ]
+      }));
+      handleCloseUserSelection();
+    }
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      linkedUsers: prev.linkedUsers.filter(u => u.userId !== userId)
+    }));
+  };
+
+  const handleChangeUserRole = (userId: string, newRole: 'principal' | 'support' | 'observer') => {
+    setFormData(prev => ({
+      ...prev,
+      linkedUsers: prev.linkedUsers.map(u =>
+        u.userId === userId ? { ...u, role: newRole } : u
+      )
+    }));
+  };
+
+  const getFilteredUsers = () => {
+    const existingUserIds = formData.linkedUsers.map(u => u.userId);
+    return availableUsers.filter(user =>
+      !existingUserIds.includes(user._id) &&
+      (user.firstName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+       user.lastName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+       user.email.toLowerCase().includes(userSearchTerm.toLowerCase()))
+    );
+  };
+
   const handleSubmit = async () => {
     if (!validateStep(activeStep)) return;
 
@@ -676,13 +823,22 @@ export const WorkPermitForm: React.FC = () => {
     setSubmitError('');
 
     try {
+      // Usar el primer usuario como contractorId para backward compatibility
+      const contractorId = formData.linkedUsers.length > 0 ? formData.linkedUsers[0].userId : '';
+
       const submitData: WorkPermitCreateData = {
-        contractorId: formData.contractorId,
+        contractorId: contractorId,
         companyId: formData.companyId || user?.company?._id || user?.companyId,
         templateId: formData.templateId || undefined,
         category: formData.category || 'general', // Usar categoría del formulario
+        linkedUsers: formData.linkedUsers.length > 0
+          ? formData.linkedUsers.map(u => ({
+              userId: u.userId,
+              role: u.role
+            }))
+          : undefined,
         workDescription: formData.workDescription,
-        location: formData.location,
+        location: formData.location, // Siempre enviar objeto completo
         startDate: new Date(formData.startDate).toISOString(),
         endDate: new Date(formData.endDate).toISOString(),
         workHours: {
@@ -699,18 +855,18 @@ export const WorkPermitForm: React.FC = () => {
             checked: control.checked,
             notes: control.notes || ''
           }));
-          
+
           // Si no hay controles marcados, marcar el primero por defecto
           const hasChecked = controls.some(c => c.checked);
           if (!hasChecked && controls.length > 0) {
             controls[0].checked = true;
             controls[0].notes = 'Control por defecto';
           }
-          
+
           return controls;
         })(),
         additionalControls: formData.additionalControls || undefined,
-        requiredApprovals: formData.requiredApprovals.length > 0 
+        requiredApprovals: formData.requiredApprovals.length > 0
           ? formData.requiredApprovals.map(dept => ({ department: dept }))
           : [],
         requiredForms: formData.templateForms.length > 0
@@ -721,8 +877,8 @@ export const WorkPermitForm: React.FC = () => {
               condition: tf.condition
             }))
           : undefined,
-        formResponses: Object.keys(formData.formResponses).length > 0 
-          ? formData.formResponses 
+        formResponses: Object.keys(formData.formResponses).length > 0
+          ? formData.formResponses
           : undefined
       };
 
@@ -747,7 +903,7 @@ export const WorkPermitForm: React.FC = () => {
         showSnackbar(
           'Permiso de trabajo creado exitosamente',
           'success',
-          `Se ha generado un nuevo permiso de trabajo para ${contractors.find(c => c.id === formData.contractorId)?.name || 'el contratista seleccionado'}.`
+          `Se ha generado un nuevo permiso de trabajo con ${formData.linkedUsers.length} usuario(s) vinculado(s).`
         );
       }
       
@@ -832,14 +988,14 @@ export const WorkPermitForm: React.FC = () => {
                     applyTemplate(newValue._id);
                   } else {
                     // Limpiar todos los campos del template pero mantener categoría
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      templateId: '', 
-                      templateForms: [], 
+                    setFormData(prev => ({
+                      ...prev,
+                      templateId: '',
+                      templateForms: [],
                       formResponses: {},
                       requiredApprovals: [], // Limpiar aprobaciones
                       workDescription: '',
-                      location: '',
+                      location: { type: 'area', generalArea: '', notes: '' },
                       identifiedRisks: [],
                       toolsToUse: [],
                       requiredPPE: [],
@@ -899,94 +1055,165 @@ export const WorkPermitForm: React.FC = () => {
                 )}
               </FormControl>
             </Box>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 48%' } }}>
-              <Autocomplete
-                options={companies}
-                getOptionLabel={(option) => option.name}
-                value={companies.find(c => c.id === formData.companyId) || null}
-                onChange={(_, newValue) => {
-                  setFormData(prev => ({ ...prev, companyId: newValue?.id || '' }));
-                  if (errors.companyId) {
-                    setErrors(prev => ({ ...prev, companyId: '' }));
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Espacios de Trabajo"
-                    placeholder="Seleccione la empresa"
-                    error={!!errors.companyId}
-                    helperText={errors.companyId || 'Seleccione la empresa del contratista'}
-                    required
-                  />
-                )}
-                noOptionsText="No se encontraron empresas"
-                loading={companies.length === 0}
-              />
-            </Box>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 48%' } }}>
-              <Autocomplete
-                options={contractors}
-                getOptionLabel={(option) => `${option.name} - ${option.cedula}`}
-                value={contractors.find(c => c.id === formData.contractorId) || null}
-                disabled={!formData.companyId || loadingContractors}
-                onChange={(_, newValue) => {
-                  setFormData(prev => ({ ...prev, contractorId: newValue?.id || '' }));
-                  if (errors.contractorId) {
-                    setErrors(prev => ({ ...prev, contractorId: '' }));
-                  }
-                }}
-                filterOptions={(options, { inputValue }) => {
-                  return options.filter(option => 
-                    option.name.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    option.cedula.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    option.id.toLowerCase().includes(inputValue.toLowerCase())
-                  );
-                }}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="body1">{option.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        ID: {option.id} • Cédula: {option.cedula}
+
+            {/* Linked Users Section */}
+            <Box sx={{ flex: '1 1 100%', mt: 2 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <GroupIcon color="primary" fontSize="medium" />
+                      <Typography
+                        variant="h6"
+                        component="h3"
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: { xs: '1.05rem', sm: '1.15rem' },
+                          lineHeight: 1.4
+                        }}
+                      >
+                        Usuarios Vinculados
                       </Typography>
                     </Box>
                   </Box>
-                )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Contratista"
-                    placeholder={!formData.companyId ? "Primero seleccione una empresa" : "Buscar por nombre, cédula o ID"}
-                    error={!!errors.contractorId}
-                    helperText={
-                      !formData.companyId 
-                        ? 'Primero debe seleccionar una empresa' 
-                        : errors.contractorId || 'Busque y seleccione el contratista'
-                    }
-                    required
-                    slotProps={{
-                      input: {
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {loadingContractors && <CircularProgress color="inherit" size={20} />}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      },
-                    }}
-                  />
-                )}
-                noOptionsText={
-                  !formData.companyId 
-                    ? "Seleccione una empresa primero" 
-                    : contractors.length === 0 && loadingContractors
-                    ? "Cargando contratistas..."
-                    : "No se encontraron contratistas para esta empresa"
-                }
-                loading={loadingContractors}
-              />
+
+                  {/* Selector de Empresa */}
+                  <Box sx={{ mb: 3 }}>
+                    <Autocomplete
+                      options={companies}
+                      getOptionLabel={(option) => option.name}
+                      value={companies.find(c => c.id === formData.companyId) || null}
+                      onChange={(_, newValue) => {
+                        setFormData(prev => ({ ...prev, companyId: newValue?.id || '', linkedUsers: [] }));
+                        if (errors.companyId) {
+                          setErrors(prev => ({ ...prev, companyId: '' }));
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Espacios de Trabajo"
+                          placeholder="Seleccione la empresa"
+                          error={!!errors.companyId}
+                          helperText={errors.companyId || 'Seleccione la empresa para agregar usuarios'}
+                          required
+                        />
+                      )}
+                      noOptionsText="No se encontraron empresas"
+                      loading={companies.length === 0}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<PersonAddIcon />}
+                      onClick={handleOpenUserSelection}
+                      disabled={!formData.companyId}
+                      size="medium"
+                      sx={{
+                        minWidth: { xs: '100%', sm: 'auto' },
+                        fontSize: '0.95rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      Agregar Usuario
+                    </Button>
+                  </Box>
+
+                  {formData.linkedUsers.length > 0 ? (
+                    <List sx={{ pt: 0 }}>
+                      {formData.linkedUsers.map((user) => (
+                        <ListItem
+                          key={user.userId}
+                          sx={{
+                            px: { xs: 1, sm: 2 },
+                            py: 1.5,
+                            '&:hover': { bgcolor: 'action.hover' },
+                            borderRadius: 1
+                          }}
+                          secondaryAction={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Select
+                                value={user.role}
+                                onChange={(e) => handleChangeUserRole(user.userId, e.target.value as any)}
+                                size="small"
+                                sx={{
+                                  minWidth: 120,
+                                  fontSize: '0.9rem',
+                                  fontWeight: 500
+                                }}
+                              >
+                                <MenuItem value="principal" sx={{ fontSize: '0.9rem' }}>Principal</MenuItem>
+                                <MenuItem value="support" sx={{ fontSize: '0.9rem' }}>Apoyo</MenuItem>
+                                <MenuItem value="observer" sx={{ fontSize: '0.9rem' }}>Observador</MenuItem>
+                              </Select>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleRemoveUser(user.userId)}
+                                size="medium"
+                                aria-label={`Eliminar a ${user.firstName} ${user.lastName}`}
+                                sx={{ ml: 0.5 }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          }
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ width: 44, height: 44 }}>
+                              {user.firstName && user.lastName
+                                ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                                : 'U'}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Typography
+                                variant="body1"
+                                sx={{
+                                  fontWeight: 500,
+                                  fontSize: '1rem',
+                                  lineHeight: 1.5
+                                }}
+                              >
+                                {`${user.firstName} ${user.lastName}`}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontSize: '0.875rem',
+                                  lineHeight: 1.6,
+                                  mt: 0.5
+                                }}
+                              >
+                                {user.email}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
+                      <Typography
+                        variant="body1"
+                        color={errors.linkedUsers ? "error" : "text.secondary"}
+                        sx={{
+                          fontSize: '0.95rem',
+                          lineHeight: 1.6
+                        }}
+                      >
+                        {!formData.companyId
+                          ? 'Seleccione una empresa para agregar usuarios'
+                          : errors.linkedUsers || 'No hay usuarios vinculados. Agregue al menos un usuario para colaborar en este permiso.'}
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
             </Box>
 
             <Box sx={{ flex: '1 1 100%' }}>
@@ -1008,16 +1235,256 @@ export const WorkPermitForm: React.FC = () => {
               />
             </Box>
 
-            <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 31%' } }}>
-              <TextField
-                fullWidth
-                label="Ubicación"
-                value={formData.location}
-                onChange={handleInputChange('location')}
-                error={!!errors.location}
-                helperText={errors.location}
-                required
-              />
+            {/* Location Section */}
+            <Box sx={{ flex: '1 1 100%' }}>
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LocationOnIcon color="primary" />
+                  <Typography variant="h6" component="h4" sx={{ fontWeight: 600 }}>
+                    Ubicación del Trabajo
+                  </Typography>
+                </Box>
+
+                {/* Location Type Selector */}
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Tipo de Ubicación</InputLabel>
+                  <Select
+                    value={formData.location.type}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'area' | 'point' | 'route';
+                      setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          type: newType,
+                          generalArea: prev.location.generalArea || '',
+                          point: newType === 'point' ? { name: '' } : undefined,
+                          route: newType === 'route' ? { name: '', points: [] } : undefined,
+                          notes: prev.location.notes || ''
+                        }
+                      }));
+                    }}
+                    label="Tipo de Ubicación"
+                  >
+                    <MenuItem value="area">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <MyLocationIcon fontSize="small" />
+                        Área General
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="point">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOnIcon fontSize="small" />
+                        Punto Específico
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="route">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <RouteIcon fontSize="small" />
+                        Ruta/Recorrido
+                      </Box>
+                    </MenuItem>
+                  </Select>
+                  <FormHelperText>
+                    {formData.location.type === 'area' && 'Descripción general del área de trabajo'}
+                    {formData.location.type === 'point' && 'Punto exacto con detalles y coordenadas'}
+                    {formData.location.type === 'route' && 'Ruta con múltiples puntos'}
+                  </FormHelperText>
+                </FormControl>
+
+                {/* Area Location */}
+                {formData.location.type === 'area' && (
+                  <TextField
+                    fullWidth
+                    label="Área General"
+                    value={formData.location.generalArea || ''}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      location: { ...prev.location, generalArea: e.target.value }
+                    }))}
+                    error={!!errors.location}
+                    helperText={errors.location || 'Ej: Planta de tratamiento, Sector Norte'}
+                    required
+                    sx={{ mb: 2 }}
+                  />
+                )}
+
+                {/* Point Location */}
+                {formData.location.type === 'point' && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      fullWidth
+                      label="Área General"
+                      value={formData.location.generalArea || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: { ...prev.location, generalArea: e.target.value }
+                      }))}
+                      helperText="Ej: Planta de tratamiento de agua"
+                    />
+                    <TextField
+                      fullWidth
+                      label="Nombre del Punto"
+                      value={formData.location.point?.name || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          ...prev.location,
+                          point: { ...prev.location.point, name: e.target.value }
+                        }
+                      }))}
+                      error={!!errors.location}
+                      helperText={errors.location || 'Ej: Tanque de almacenamiento #5'}
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      label="Descripción"
+                      value={formData.location.point?.description || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          ...prev.location,
+                          point: { name: prev.location.point?.name || '', ...prev.location.point, description: e.target.value }
+                        }
+                      }))}
+                      multiline
+                      rows={2}
+                      helperText="Detalles adicionales del punto"
+                    />
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <TextField
+                        label="Piso/Nivel"
+                        value={formData.location.point?.floor || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          location: {
+                            ...prev.location,
+                            point: { name: prev.location.point?.name || '', ...prev.location.point, floor: e.target.value }
+                          }
+                        }))}
+                        sx={{ flex: '1 1 45%' }}
+                      />
+                      <TextField
+                        label="Área"
+                        value={formData.location.point?.area || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          location: {
+                            ...prev.location,
+                            point: { name: prev.location.point?.name || '', ...prev.location.point, area: e.target.value }
+                          }
+                        }))}
+                        sx={{ flex: '1 1 45%' }}
+                      />
+                    </Box>
+                    <TextField
+                      fullWidth
+                      label="Referencia"
+                      value={formData.location.point?.reference || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          ...prev.location,
+                          point: { name: prev.location.point?.name || '', ...prev.location.point, reference: e.target.value }
+                        }
+                      }))}
+                      helperText="Ej: Al lado de la escalera norte"
+                    />
+                  </Box>
+                )}
+
+                {/* Route Location */}
+                {formData.location.type === 'route' && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      fullWidth
+                      label="Área General"
+                      value={formData.location.generalArea || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: { ...prev.location, generalArea: e.target.value }
+                      }))}
+                      helperText="Ej: Sistema de distribución de agua"
+                    />
+                    <TextField
+                      fullWidth
+                      label="Nombre de la Ruta"
+                      value={formData.location.route?.name || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          ...prev.location,
+                          route: { ...prev.location.route, name: e.target.value, points: prev.location.route?.points || [] }
+                        }
+                      }))}
+                      error={!!errors.location}
+                      helperText={errors.location || 'Ej: Tubería principal sector norte'}
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      label="Descripción"
+                      value={formData.location.route?.description || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        location: {
+                          ...prev.location,
+                          route: { ...prev.location.route, name: prev.location.route?.name || '', points: prev.location.route?.points || [], description: e.target.value }
+                        }
+                      }))}
+                      multiline
+                      rows={2}
+                      helperText="Descripción del recorrido"
+                    />
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <TextField
+                        type="number"
+                        label="Distancia (metros)"
+                        value={formData.location.route?.distance || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          location: {
+                            ...prev.location,
+                            route: { ...prev.location.route, name: prev.location.route?.name || '', points: prev.location.route?.points || [], distance: Number(e.target.value) }
+                          }
+                        }))}
+                        sx={{ flex: 1 }}
+                      />
+                      <TextField
+                        type="number"
+                        label="Tiempo estimado (min)"
+                        value={formData.location.route?.estimatedTime || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          location: {
+                            ...prev.location,
+                            route: { ...prev.location.route, name: prev.location.route?.name || '', points: prev.location.route?.points || [], estimatedTime: Number(e.target.value) }
+                          }
+                        }))}
+                        sx={{ flex: 1 }}
+                      />
+                    </Box>
+                    <Alert severity="info" icon={<RouteIcon />}>
+                      Los puntos de la ruta se pueden agregar en la sección de detalles avanzados
+                    </Alert>
+                  </Box>
+                )}
+
+                {/* Notes (common for all types) */}
+                <TextField
+                  fullWidth
+                  label="Notas adicionales"
+                  value={formData.location.notes || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    location: { ...prev.location, notes: e.target.value }
+                  }))}
+                  multiline
+                  rows={2}
+                  helperText="Información adicional sobre el acceso, restricciones, etc."
+                  sx={{ mt: 2 }}
+                />
+              </Card>
             </Box>
 
             <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 48%', md: '1 1 31%' } }}>
@@ -1491,10 +1958,12 @@ export const WorkPermitForm: React.FC = () => {
 
                     <Box sx={{ width: { xs: "100%", sm: "48%" } }}>
                       <Typography variant="subtitle2" color="text.secondary">
-                        Contratista
+                        Usuarios Vinculados
                       </Typography>
                       <Typography variant="body1">
-                        {contractors.find(c => c.id === formData.contractorId)?.name || 'No seleccionado'}
+                        {formData.linkedUsers.length > 0
+                          ? `${formData.linkedUsers.length} usuario(s)`
+                          : 'Ninguno'}
                       </Typography>
                     </Box>
 
@@ -1503,7 +1972,11 @@ export const WorkPermitForm: React.FC = () => {
                         Ubicación
                       </Typography>
                       <Typography variant="body1">
-                        {formData.location}
+                        {formData.location.type === 'area'
+                          ? formData.location.generalArea || 'No especificada'
+                          : formData.location.type === 'point'
+                          ? formData.location.point?.name || 'Punto específico'
+                          : formData.location.route?.name || 'Ruta'}
                       </Typography>
                     </Box>
 
@@ -1917,6 +2390,182 @@ export const WorkPermitForm: React.FC = () => {
             startIcon={<AddIcon />}
           >
             Agregar ({selectedFormsToAdd.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para seleccionar usuarios */}
+      <Dialog
+        open={userSelectionOpen}
+        onClose={handleCloseUserSelection}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              fontSize: '1.2rem',
+              lineHeight: 1.4
+            }}
+          >
+            Seleccionar Usuario
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              placeholder="Buscar por nombre o email..."
+              value={userSearchTerm}
+              onChange={(e) => setUserSearchTerm(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  )
+                }
+              }}
+              sx={{
+                mb: 2,
+                '& .MuiInputBase-input': {
+                  fontSize: '0.95rem',
+                  lineHeight: 1.5
+                }
+              }}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel sx={{ fontSize: '0.95rem' }}>Rol del Usuario</InputLabel>
+              <Select
+                value={selectedUserRole}
+                onChange={(e) => setSelectedUserRole(e.target.value as any)}
+                label="Rol del Usuario"
+                sx={{
+                  fontSize: '0.95rem',
+                  fontWeight: 500
+                }}
+              >
+                <MenuItem value="principal" sx={{ fontSize: '0.95rem', py: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PersonIcon fontSize="small" />
+                    Principal
+                  </Box>
+                </MenuItem>
+                <MenuItem value="support" sx={{ fontSize: '0.95rem', py: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <GroupIcon fontSize="small" />
+                    Apoyo
+                  </Box>
+                </MenuItem>
+                <MenuItem value="observer" sx={{ fontSize: '0.95rem', py: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PersonIcon fontSize="small" />
+                    Observador
+                  </Box>
+                </MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <List sx={{ maxHeight: 350, overflow: 'auto' }}>
+            {getFilteredUsers().map((user) => (
+              <ListItemButton
+                key={user._id}
+                onClick={() => handleAddUser(user._id)}
+                sx={{
+                  borderRadius: 1,
+                  mb: 1,
+                  py: 1.5,
+                  '&:hover': {
+                    bgcolor: 'action.hover'
+                  }
+                }}
+              >
+                <ListItemAvatar>
+                  <Avatar sx={{ width: 42, height: 42 }}>
+                    {user.firstName && user.lastName
+                      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                      : 'U'}
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        fontWeight: 500,
+                        fontSize: '1rem',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {`${user.firstName} ${user.lastName}`}
+                    </Typography>
+                  }
+                  secondary={
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        sx={{
+                          fontSize: '0.875rem',
+                          lineHeight: 1.6
+                        }}
+                      >
+                        {user.email}
+                      </Typography>
+                      {user.department && (
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          color="text.secondary"
+                          sx={{
+                            fontSize: '0.8rem',
+                            lineHeight: 1.5,
+                            mt: 0.25
+                          }}
+                        >
+                          {user.department}
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                />
+              </ListItemButton>
+            ))}
+          </List>
+
+          {getFilteredUsers().length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6
+                }}
+              >
+                {userSearchTerm
+                  ? 'No se encontraron usuarios que coincidan con la búsqueda'
+                  : 'No hay usuarios disponibles para agregar'}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={handleCloseUserSelection}
+            sx={{
+              fontSize: '0.95rem',
+              fontWeight: 500
+            }}
+          >
+            Cancelar
           </Button>
         </DialogActions>
       </Dialog>

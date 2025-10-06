@@ -36,6 +36,7 @@ interface VerificationSubmitDialogProps {
   companyId: string;
   companyName: string;
   onSubmitted: () => void;
+  onShowMessage?: (message: string, severity: 'success' | 'error') => void;
 }
 
 export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> = ({
@@ -44,17 +45,17 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
   verification,
   companyId,
   companyName,
-  onSubmitted
+  onSubmitted,
+  onShowMessage
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentoId, setDocumentoId] = useState<string>('');
+  const [localError, setLocalError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<SubmitVerificationData>({
     documentUrl: verification.documentUrl || '',
@@ -68,64 +69,76 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
     if (file) {
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        setError('El archivo no puede superar los 10MB');
+        setLocalError('El archivo no puede superar los 10MB');
         return;
       }
-      
+
       // Validate file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(file.type)) {
-        setError('Solo se permiten archivos PDF, JPG, JPEG o PNG');
+        setLocalError('Solo se permiten archivos PDF, JPG, JPEG o PNG');
         return;
       }
-      
+
       setSelectedFile(file);
-      setError(null);
+      setLocalError(null);
     }
   };
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
+      setLocalError(null);
+
       let fileId = documentoId;
-      
+
       // If there's a selected file but no document ID, upload the file first
       if (selectedFile && !fileId) {
         try {
           console.log('Uploading file:', selectedFile.name);
           const uploadResponse = await fileService.uploadFile(selectedFile);
           console.log('Upload response:', uploadResponse);
-          
+
           if (!uploadResponse.success) {
             throw new Error(uploadResponse.message || 'Error al subir el archivo');
           }
-          
+
           fileId = uploadResponse.fileId;
           setDocumentoId(fileId);
           console.log('File uploaded successfully, ID:', fileId);
         } catch (uploadError: any) {
           console.error('Error uploading file:', uploadError);
-          setError(uploadError.message || 'Error al subir el archivo');
+          const errorMsg = uploadError.message || 'Error al subir el archivo';
+          setLocalError(errorMsg);
+          if (onShowMessage) {
+            onShowMessage(errorMsg, 'error');
+          }
           setLoading(false);
           return;
         }
       }
-      
+
       // Validate required fields
       if (!fileId) {
-        setError('Debe seleccionar un documento');
+        const errorMsg = 'Debe seleccionar un documento';
+        setLocalError(errorMsg);
+        if (onShowMessage) {
+          onShowMessage(errorMsg, 'error');
+        }
         setLoading(false);
         return;
       }
-      
+
       if (verification.validityPeriod && !formData.expiryDate) {
-        setError('Debe especificar la fecha de vencimiento');
+        const errorMsg = 'Debe especificar la fecha de vencimiento';
+        setLocalError(errorMsg);
+        if (onShowMessage) {
+          onShowMessage(errorMsg, 'error');
+        }
         setLoading(false);
         return;
       }
-      
+
       // Build submit data with documentoId instead of documentUrl
       const submitData: any = {
         documentoId: fileId,
@@ -133,27 +146,34 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
         expiryDate: formData.expiryDate,
         notes: formData.notes
       };
-      
+
       console.log('Submitting verification:', {
         companyId,
         verificationId: verification.id,
         submitData
       });
-      
+
       await userVerificationsApi.submitVerification(
         companyId,
         verification.id,
         submitData
       );
-      
-      setSuccess(true);
-      setTimeout(() => {
-        onSubmitted();
-        onClose();
-      }, 1500);
+
+      // Show success message via parent Snackbar
+      if (onShowMessage) {
+        onShowMessage('Verificación enviada exitosamente', 'success');
+      }
+
+      // Close dialog and refresh
+      onSubmitted();
+      onClose();
     } catch (error: any) {
       console.error('Error submitting verification:', error);
-      setError(error.response?.data?.message || error.message || 'Error al enviar la verificación');
+      const errorMsg = error.response?.data?.message || error.message || 'Error al enviar la verificación';
+      setLocalError(errorMsg);
+      if (onShowMessage) {
+        onShowMessage(errorMsg, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -228,19 +248,13 @@ export const VerificationSubmitDialog: React.FC<VerificationSubmitDialogProps> =
             </Alert>
           )}
         </Box>
-        
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
+
+        {localError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLocalError(null)}>
+            {localError}
           </Alert>
         )}
-        
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Verificación enviada exitosamente
-          </Alert>
-        )}
-        
+
         {/* Document Upload Section */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" gutterBottom>

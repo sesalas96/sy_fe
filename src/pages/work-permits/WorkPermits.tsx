@@ -38,7 +38,8 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  ListItemButton
+  ListItemButton,
+  Snackbar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -122,29 +123,28 @@ export const WorkPermits: React.FC = () => {
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [selectedPermitForUsers, setSelectedPermitForUsers] = useState<WorkPermit | null>(null);
   const [userSelectionOpen, setUserSelectionOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'approver' | 'reviewer'>('reviewer');
+  const [selectedRole, setSelectedRole] = useState<'principal' | 'support'>('support');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [permitUsers, setPermitUsers] = useState<Array<{
     _id: string;
     firstName: string;
     lastName: string;
     email: string;
-    role: 'admin' | 'approver' | 'reviewer';
+    role: 'principal' | 'support';
   }>>([]);
-  const [availableUsers] = useState<Array<{
+  const [availableUsers, setAvailableUsers] = useState<Array<{
     _id: string;
     firstName: string;
     lastName: string;
     email: string;
     department?: string;
-  }>>([
-    { _id: '4', firstName: 'Ana', lastName: 'Martínez', email: 'ana.martinez@example.com', department: 'Seguridad' },
-    { _id: '5', firstName: 'Roberto', lastName: 'Sánchez', email: 'roberto.sanchez@example.com', department: 'HSE' },
-    { _id: '6', firstName: 'Laura', lastName: 'Rodríguez', email: 'laura.rodriguez@example.com', department: 'Operaciones' },
-    { _id: '7', firstName: 'Diego', lastName: 'Fernández', email: 'diego.fernandez@example.com', department: 'Seguridad' },
-    { _id: '8', firstName: 'Patricia', lastName: 'García', email: 'patricia.garcia@example.com', department: 'HSE' },
-  ]);
-  
+  }>>([]);
+
+  // Snackbar state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
   // Stats
   const [stats, setStats] = useState<WorkPermitStats>({
     summary: {
@@ -218,6 +218,12 @@ export const WorkPermits: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const showMessage = (message: string, severity: 'success' | 'error' = 'success') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   };
 
   const loadStats = async () => {
@@ -461,42 +467,80 @@ export const WorkPermits: React.FC = () => {
 
   const handleOpenUserManagement = (permit: WorkPermit) => {
     setSelectedPermitForUsers(permit);
-    // Mock data for users - in real implementation, fetch from API
-    setPermitUsers([
-      {
-        _id: '1',
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        email: 'juan.perez@example.com',
-        role: 'approver'
-      },
-      {
-        _id: '2',
-        firstName: 'María',
-        lastName: 'González',
-        email: 'maria.gonzalez@example.com',
-        role: 'reviewer'
-      }
-    ]);
+
+    // Map linkedUsers to permitUsers format
+    const users = (permit.linkedUsers || []).map(linkedUser => {
+      const user = typeof linkedUser.user === 'string' ? null : linkedUser.user;
+      return {
+        _id: user?._id || linkedUser.user as string,
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        email: user?.email || '',
+        role: linkedUser.role // 'principal' or 'support'
+      };
+    }).filter(u => u.firstName || u.lastName || u.email); // Filter out users without data
+
+    setPermitUsers(users);
     setUserManagementOpen(true);
   };
 
   const handleCloseUserManagement = () => {
     setUserManagementOpen(false);
     setSelectedPermitForUsers(null);
+    setAvailableUsers([]); // Clear available users to force reload next time
   };
 
-  const handleAddUser = (userId: string) => {
+  const handleAddUser = async (userId: string) => {
+    if (!selectedPermitForUsers) return;
+
     const user = availableUsers.find(u => u._id === userId);
     if (user && !permitUsers.some(pu => pu._id === userId)) {
-      setPermitUsers([...permitUsers, { ...user, role: selectedRole }]);
+      try {
+        // Add user to permit via API
+        await WorkPermitApi.addLinkedUsers(selectedPermitForUsers._id, [
+          { userId, role: selectedRole as 'principal' | 'support' }
+        ]);
+
+        // Update local state
+        setPermitUsers([...permitUsers, { ...user, role: selectedRole }]);
+
+        // Reload work permits to get updated data
+        await loadWorkPermits();
+
+        // Show success message
+        showMessage(`Usuario ${user.firstName} ${user.lastName} agregado exitosamente`, 'success');
+
+        // Close user selection dialog
+        handleCloseUserSelection();
+      } catch (error: any) {
+        console.error('Error adding user:', error);
+        showMessage(error.message || 'Error al agregar usuario', 'error');
+      }
     }
   };
 
-  const handleOpenUserSelection = () => {
+  const handleOpenUserSelection = async () => {
     setUserSelectionOpen(true);
     setUserSearchTerm('');
-    setSelectedRole('reviewer');
+    setSelectedRole('support');
+
+    // Load available users from work permit specific endpoint
+    if (selectedPermitForUsers) {
+      try {
+        const response = await WorkPermitApi.getAvailableUsers(selectedPermitForUsers._id);
+        const users = response.data.map((u: any) => ({
+          _id: u.userId,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          department: u.role // Using role field as department placeholder
+        }));
+        setAvailableUsers(users);
+      } catch (error: any) {
+        console.error('Error loading available users:', error);
+        showMessage(error.message || 'Error al cargar los usuarios disponibles', 'error');
+      }
+    }
   };
 
   const handleCloseUserSelection = () => {
@@ -515,16 +559,71 @@ export const WorkPermits: React.FC = () => {
     );
   };
 
-  const handleRemoveUser = (userId: string) => {
-    // In real implementation, this would call an API
-    setPermitUsers(permitUsers.filter(u => u._id !== userId));
+  const handleRemoveUser = async (userId: string) => {
+    if (!selectedPermitForUsers) return;
+
+    const user = permitUsers.find(u => u._id === userId);
+
+    try {
+      await WorkPermitApi.removeLinkedUser(selectedPermitForUsers._id, userId);
+      setPermitUsers(permitUsers.filter(u => u._id !== userId));
+
+      // Reload work permits to get updated data
+      await loadWorkPermits();
+
+      // Show success message
+      if (user) {
+        showMessage(`Usuario ${user.firstName} ${user.lastName} removido exitosamente`, 'success');
+      } else {
+        showMessage('Usuario removido exitosamente', 'success');
+      }
+    } catch (error: any) {
+      console.error('Error removing user:', error);
+      showMessage(error.message || 'Error al eliminar usuario', 'error');
+    }
   };
 
-  const handleChangeUserRole = (userId: string, newRole: 'admin' | 'approver' | 'reviewer') => {
-    // In real implementation, this would call an API
-    setPermitUsers(permitUsers.map(u => 
+  const handleChangeUserRole = (userId: string, newRole: 'principal' | 'support') => {
+    // Update local state
+    setPermitUsers(permitUsers.map(u =>
       u._id === userId ? { ...u, role: newRole } : u
     ));
+  };
+
+  const handleSaveUserChanges = async () => {
+    if (!selectedPermitForUsers) return;
+
+    try {
+      // Remove all current users
+      const originalLinkedUsers = selectedPermitForUsers.linkedUsers || [];
+      for (const linkedUser of originalLinkedUsers) {
+        const userId = typeof linkedUser.user === 'string' ? linkedUser.user : linkedUser.user._id;
+        await WorkPermitApi.removeLinkedUser(selectedPermitForUsers._id, userId);
+      }
+
+      // Add all users with updated roles
+      if (permitUsers.length > 0) {
+        await WorkPermitApi.addLinkedUsers(
+          selectedPermitForUsers._id,
+          permitUsers.map(u => ({
+            userId: u._id,
+            role: u.role as 'principal' | 'support'
+          }))
+        );
+      }
+
+      // Reload work permits
+      await loadWorkPermits();
+
+      // Show success message
+      showMessage('Cambios guardados exitosamente', 'success');
+
+      // Close dialog
+      handleCloseUserManagement();
+    } catch (error: any) {
+      console.error('Error saving user changes:', error);
+      showMessage(error.message || 'Error al guardar cambios', 'error');
+    }
   };
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -892,9 +991,9 @@ export const WorkPermits: React.FC = () => {
           <Table size={isXs ? 'small' : 'medium'}>
             <TableHead>
               <TableRow>
+                {!isSm && <TableCell>Usuarios</TableCell>}
                 <TableCell>Descripción</TableCell>
                 {!isMd && <TableCell>Espacio de trabajo</TableCell>}
-                {!isSm && <TableCell>Usuarios</TableCell>}
                 {!isMd && <TableCell>Ubicación</TableCell>}
                 {!isSm && <TableCell>Fecha Inicio</TableCell>}
                 {!isMd && <TableCell>Fecha Fin</TableCell>}
@@ -906,14 +1005,76 @@ export const WorkPermits: React.FC = () => {
             <TableBody>
               {workPermits.filter(permit => permit && permit._id).map((permit) => (
                 <TableRow key={permit._id} hover>
+                  {!isSm && (
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {permit.linkedUsers && permit.linkedUsers.length > 0 ? (
+                          <>
+                            <AvatarGroup
+                              max={isXs ? 2 : 3}
+                              sx={{
+                                mr: 1,
+                                '& .MuiAvatar-root': {
+                                  width: isXs ? 24 : 32,
+                                  height: isXs ? 24 : 32,
+                                  fontSize: isXs ? '0.75rem' : '1rem'
+                                }
+                              }}
+                            >
+                              {permit.linkedUsers.map((linkedUser, idx) => {
+                                const user = typeof linkedUser.user === 'string' ? null : linkedUser.user;
+                                const roleLabel = linkedUser.role === 'principal' ? 'Principal' : 'Apoyo';
+
+                                const initials = user?.firstName && user?.lastName
+                                  ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                                  : linkedUser.role === 'principal' ? 'P' : 'A';
+
+                                const userName = user?.firstName && user?.lastName
+                                  ? `${user.firstName} ${user.lastName}`
+                                  : 'Usuario';
+
+                                return (
+                                  <Tooltip key={idx} title={`${userName} - ${roleLabel}`}>
+                                    <Avatar>
+                                      {initials}
+                                    </Avatar>
+                                  </Tooltip>
+                                );
+                              })}
+                            </AvatarGroup>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenUserManagement(permit)}
+                              sx={{ ml: 0.5, padding: isXs ? 0.5 : 1 }}
+                            >
+                              <GroupAddIcon fontSize={isXs ? "small" : "medium"} />
+                            </IconButton>
+                          </>
+                        ) : (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Sin usuarios
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenUserManagement(permit)}
+                              sx={{ padding: isXs ? 0.5 : 1 }}
+                            >
+                              <GroupAddIcon fontSize={isXs ? "small" : "medium"} />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </Box>
+                    </TableCell>
+                  )}
                   <TableCell>
-                    <Typography 
-                      variant={isXs ? "body2" : "body1"} 
+                    <Typography
+                      variant={isXs ? "body2" : "body1"}
                       fontWeight="medium"
                       sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                     >
-                      {permit.workDescription.length > (isXs ? 30 : 50) 
-                        ? `${permit.workDescription.substring(0, isXs ? 30 : 50)}...` 
+                      {permit.workDescription.length > (isXs ? 30 : 50)
+                        ? `${permit.workDescription.substring(0, isXs ? 30 : 50)}...`
                         : permit.workDescription}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -932,40 +1093,6 @@ export const WorkPermits: React.FC = () => {
                       <Typography variant="body2">
                         {permit.company?.name || 'N/A'}
                       </Typography>
-                    </TableCell>
-                  )}
-                  {!isSm && (
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <AvatarGroup 
-                          max={isXs ? 2 : 3} 
-                          sx={{ 
-                            mr: 1,
-                            '& .MuiAvatar-root': {
-                              width: isXs ? 24 : 32,
-                              height: isXs ? 24 : 32,
-                              fontSize: isXs ? '0.75rem' : '1rem'
-                            }
-                          }}
-                        >
-                          <Tooltip title="Juan Pérez - Aprobador">
-                            <Avatar>JP</Avatar>
-                          </Tooltip>
-                          <Tooltip title="María González - Revisor">
-                            <Avatar>MG</Avatar>
-                          </Tooltip>
-                          <Tooltip title="Carlos López - Admin">
-                            <Avatar>CL</Avatar>
-                          </Tooltip>
-                        </AvatarGroup>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenUserManagement(permit)}
-                          sx={{ ml: 0.5, padding: isXs ? 0.5 : 1 }}
-                        >
-                          <GroupAddIcon fontSize={isXs ? "small" : "medium"} />
-                        </IconButton>
-                      </Box>
                     </TableCell>
                   )}
                   {!isMd && <TableCell>{permit.location}</TableCell>}
@@ -1469,8 +1596,8 @@ export const WorkPermits: React.FC = () => {
               Usuarios asignados a este permiso
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Los usuarios pueden tener diferentes roles: Administradores pueden gestionar el permiso,
-              Aprobadores pueden aprobar/rechazar, y Revisores solo pueden ver y comentar.
+              Los usuarios pueden tener diferentes roles: Principal es el responsable del trabajo,
+              y los de Apoyo asisten en la ejecución del permiso.
             </Typography>
           </Box>
 
@@ -1497,9 +1624,8 @@ export const WorkPermits: React.FC = () => {
                       value={user.role}
                       onChange={(e) => handleChangeUserRole(user._id, e.target.value as any)}
                     >
-                      <MenuItem value="admin">Admin</MenuItem>
-                      <MenuItem value="approver">Aprobador</MenuItem>
-                      <MenuItem value="reviewer">Revisor</MenuItem>
+                      <MenuItem value="principal">Principal</MenuItem>
+                      <MenuItem value="support">Apoyo</MenuItem>
                     </Select>
                   </FormControl>
                   <IconButton
@@ -1537,7 +1663,7 @@ export const WorkPermits: React.FC = () => {
           <Button onClick={handleCloseUserManagement}>
             Cerrar
           </Button>
-          <Button variant="contained" onClick={handleCloseUserManagement}>
+          <Button variant="contained" onClick={handleSaveUserChanges}>
             Guardar Cambios
           </Button>
         </DialogActions>
@@ -1583,22 +1709,16 @@ export const WorkPermits: React.FC = () => {
                 onChange={(e) => setSelectedRole(e.target.value as any)}
                 label="Rol del Usuario"
               >
-                <MenuItem value="admin">
+                <MenuItem value="principal">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <AdminIcon fontSize="small" />
-                    Administrador
+                    <PersonIcon fontSize="small" />
+                    Principal
                   </Box>
                 </MenuItem>
-                <MenuItem value="approver">
+                <MenuItem value="support">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <ApproverIcon fontSize="small" />
-                    Aprobador
-                  </Box>
-                </MenuItem>
-                <MenuItem value="reviewer">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <ReviewerIcon fontSize="small" />
-                    Revisor
+                    <GroupIcon fontSize="small" />
+                    Apoyo
                   </Box>
                 </MenuItem>
               </Select>
@@ -1795,6 +1915,22 @@ export const WorkPermits: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

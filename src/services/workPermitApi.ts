@@ -12,7 +12,7 @@ export interface WorkPermitCreateData {
     role: 'principal' | 'support' | 'observer';
   }>;
   workDescription: string;
-  location: string;
+  location: string | any; // string para backward compatibility, objeto para point/route
   startDate: string; // ISO 8601 format
   endDate: string; // ISO 8601 format
   workHours?: {
@@ -387,6 +387,79 @@ class WorkPermitApi {
     }
 
     return response.blob();
+  }
+
+  // Linked Users Management
+  static async getAvailableUsers(
+    permitId: string,
+    search?: string
+  ): Promise<{ success: boolean; data: any[]; total: number }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+
+    const url = `${API_BASE_URL}/api/work-permits/${permitId}/available-users${search ? `?${params.toString()}` : ''}`;
+    const response = await fetch(url, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al obtener usuarios disponibles');
+    }
+
+    return response.json();
+  }
+
+  static async getAvailableUsersByCompany(
+    companyId: string,
+    search?: string
+  ): Promise<{ success: boolean; data: any[]; total: number }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+
+    const url = `${API_BASE_URL}/api/companies/${companyId}/contractors${search ? `?${params.toString()}` : ''}`;
+    const response = await fetch(url, {
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al obtener usuarios disponibles');
+    }
+
+    return response.json();
+  }
+
+  static async addLinkedUsers(
+    permitId: string,
+    users: Array<{ userId: string; role: 'principal' | 'support' | 'observer' }>
+  ): Promise<{ success: boolean; message: string; data: WorkPermit }> {
+    const response = await fetch(`${API_BASE_URL}/api/work-permits/${permitId}/linked-users`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ users })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al agregar usuarios vinculados');
+    }
+
+    return response.json();
+  }
+
+  static async removeLinkedUser(permitId: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/work-permits/${permitId}/linked-users/${userId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Error al eliminar usuario vinculado');
+    }
+
+    return response.json();
   }
 }
 

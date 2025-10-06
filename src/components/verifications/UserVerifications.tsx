@@ -16,7 +16,8 @@ import {
   useTheme,
   useMediaQuery,
   Divider,
-  Grid
+  Grid,
+  Snackbar
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -53,6 +54,9 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
     companyName: string;
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   const loadVerifications = useCallback(async () => {
     try {
@@ -94,6 +98,12 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
 
   const handleVerificationSubmitted = () => {
     loadVerifications();
+  };
+
+  const handleShowMessage = (message: string, severity: 'success' | 'error') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -373,8 +383,24 @@ export const UserVerifications: React.FC<UserVerificationsProps> = ({ userId }) 
           companyId={selectedVerification.companyId}
           companyName={selectedVerification.companyName}
           onSubmitted={handleVerificationSubmitted}
+          onShowMessage={handleShowMessage}
         />
       )}
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
