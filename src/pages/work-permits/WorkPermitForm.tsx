@@ -40,7 +40,9 @@ import {
   Avatar,
   ListItemAvatar,
   ListItemButton,
-  InputAdornment
+  InputAdornment,
+  Fab,
+  Zoom
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -55,7 +57,9 @@ import {
   Search as SearchIcon,
   LocationOn as LocationOnIcon,
   Route as RouteIcon,
-  MyLocation as MyLocationIcon
+  MyLocation as MyLocationIcon,
+  Save as SaveIcon,
+  ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import WorkPermitApi, { WorkPermitCreateData } from '../../services/workPermitApi';
@@ -395,16 +399,24 @@ export const WorkPermitForm: React.FC = () => {
             if (typeof permit.location === 'string') {
               return { type: 'area' as const, generalArea: permit.location, notes: '' };
             }
-            // Convertir location con type 'simple' a 'area'
-            if (permit.location && permit.location.type === 'simple') {
+            // Si location es un objeto con propiedades
+            if (permit.location && typeof permit.location === 'object') {
+              const loc = permit.location as any;
+              if (loc.type === 'simple') {
+                return {
+                  type: 'area' as const,
+                  generalArea: loc.simpleLocation || loc.generalArea || '',
+                  notes: loc.notes || ''
+                };
+              }
               return {
-                type: 'area' as const,
-                generalArea: (permit.location as any).simpleLocation || permit.location.generalArea || '',
-                notes: permit.location.notes || ''
+                type: loc.type || 'area' as const,
+                generalArea: loc.generalArea || '',
+                notes: loc.notes || ''
               };
             }
-            // Usar location object tal como está
-            return permit.location || { type: 'area' as const, generalArea: '', notes: '' };
+            // Por defecto
+            return { type: 'area' as const, generalArea: '', notes: '' };
           })(),
           startDate: new Date(permit.startDate).toISOString().split('T')[0],
           endDate: new Date(permit.endDate).toISOString().split('T')[0],
@@ -2197,7 +2209,10 @@ export const WorkPermitForm: React.FC = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+      <Paper sx={{ 
+        p: { xs: 2, sm: 3 },
+        pb: isEdit ? { xs: 10, sm: 12 } : { xs: 2, sm: 3 }
+      }}>
         {/* Progress bar for mobile */}
         {isMobile && (
           <Box sx={{ mb: 3 }}>
@@ -2569,6 +2584,63 @@ export const WorkPermitForm: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Botón flotante de guardar - Solo en modo edición */}
+      {isEdit && (
+        <Zoom in={true}>
+          <Box
+            sx={{
+              position: 'fixed',
+              bottom: { xs: 16, sm: 24 },
+              right: { xs: 16, sm: 24 },
+              zIndex: 1000,
+              display: 'flex',
+              gap: 2,
+              flexDirection: { xs: 'column-reverse', sm: 'row' }
+            }}
+          >
+            {/* Botón Siguiente (solo en móvil y no en el último paso) */}
+            {activeStep < steps.length - 1 && (
+              <Fab
+                color="secondary"
+                aria-label="siguiente"
+                onClick={handleNext}
+                disabled={loading}
+                size={isMobile ? "medium" : "large"}
+                sx={{
+                  boxShadow: 2,
+                  display: { xs: 'flex', sm: 'none' },
+                  backgroundColor: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark'
+                  }
+                }}
+              >
+                <ArrowForwardIcon />
+              </Fab>
+            )}
+            
+            {/* Botón Guardar (siempre visible en modo edición) */}
+            <Fab
+              color="primary"
+              variant="extended"
+              onClick={handleSubmit}
+              disabled={loading}
+              size={isMobile ? "medium" : "large"}
+              sx={{
+                boxShadow: 3,
+                minWidth: { xs: 120, sm: 140 },
+                '&:hover': {
+                  boxShadow: 6
+                }
+              }}
+            >
+              <SaveIcon sx={{ mr: 1 }} />
+              {loading ? 'Guardando...' : 'Guardar'}
+            </Fab>
+          </Box>
+        </Zoom>
+      )}
 
       {/* Snackbar para notificaciones */}
       <Snackbar

@@ -42,6 +42,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Tooltip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -75,6 +76,12 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   ExpandMore as ExpandMoreIcon,
+  Person as PersonIcon,
+  Group as GroupIcon,
+  CalendarToday as CalendarIcon,
+  AccessTime as TimeIcon,
+  AccountCircle as CreatedByIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { WorkPermit, UserRole, AssociatedForm, FormResponse } from '../../types';
@@ -103,6 +110,7 @@ export const WorkPermitDetail: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<'supervisor' | 'hse' | 'seguridad' | null>(null);
   const [copySnackbar, setCopySnackbar] = useState(false);
   const [signingPermit, setSigningPermit] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   
   // User management state
   const [userManagementOpen, setUserManagementOpen] = useState(false);
@@ -234,6 +242,43 @@ export const WorkPermitDetail: React.FC = () => {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!workPermit) return;
+    
+    setExportingPdf(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+      const response = await fetch(`${apiUrl}/api/work-permits/${workPermit._id}/export-pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al exportar el permiso');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `permiso-trabajo-${workPermit.permitNumber || workPermit._id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      setError(err.message || 'Error al exportar el permiso de trabajo');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const getStatusChip = (status: string) => {
     const statusConfig: { [key: string]: { label: string; color: 'warning' | 'success' | 'error' | 'default' | 'info'; icon: React.ReactElement } } = {
       borrador: { label: 'Borrador', color: 'default', icon: <EditIcon /> },
@@ -272,6 +317,30 @@ export const WorkPermitDetail: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getLocationDisplay = (location: string | { type?: string; generalArea?: string; route?: string; notes?: string }) => {
+    if (typeof location === 'string') {
+      return location;
+    }
+    // If location is an object, format it nicely
+    const parts = [];
+    if (location.generalArea) parts.push(location.generalArea);
+    if (location.route && typeof location.route === 'string') parts.push(location.route);
+    return parts.join(' - ') || 'N/A';
+  };
+
+  const getLocationTooltip = (location: string | { type?: string; generalArea?: string; route?: string; notes?: string }) => {
+    if (typeof location === 'string') {
+      return location;
+    }
+    // Build detailed tooltip
+    const details = [];
+    if (location.type) details.push(`Tipo: ${location.type}`);
+    if (location.generalArea) details.push(`Área: ${location.generalArea}`);
+    if (location.route && typeof location.route === 'string') details.push(`Ruta: ${location.route}`);
+    if (location.notes) details.push(`Notas: ${location.notes}`);
+    return details.join('\n') || 'N/A';
   };
 
   const canApprove = () => {
@@ -440,27 +509,41 @@ export const WorkPermitDetail: React.FC = () => {
     return `${first}${last}`.toUpperCase() || 'NN';
   };
 
-  const getRoleColor = (role: 'admin' | 'approver' | 'reviewer') => {
+  const getRoleColor = (role: 'admin' | 'approver' | 'reviewer' | 'principal' | 'support' | 'observer') => {
     switch (role) {
       case 'admin':
         return 'error';
-      case 'approver':
+      case 'principal':
         return 'primary';
+      case 'approver':
+        return 'secondary';
       case 'reviewer':
         return 'success';
+      case 'support':
+        return 'warning';
+      case 'observer':
+        return 'info';
       default:
         return 'default';
     }
   };
 
-  const getRoleIcon = (role: 'admin' | 'approver' | 'reviewer') => {
+  const getRoleIcon = (role: 'admin' | 'approver' | 'reviewer' | 'principal' | 'support' | 'observer') => {
     switch (role) {
       case 'admin':
         return <AdminIcon fontSize="small" />;
+      case 'principal':
+        return <PersonIcon fontSize="small" />;
       case 'approver':
         return <ApproverIcon fontSize="small" />;
       case 'reviewer':
+        return <CheckIcon fontSize="small" />;
+      case 'support':
+        return <GroupAddIcon fontSize="small" />;
+      case 'observer':
         return <ReviewerIcon fontSize="small" />;
+      default:
+        return null;
     }
   };
 
@@ -675,6 +758,16 @@ export const WorkPermitDetail: React.FC = () => {
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {getStatusChip(workPermit.status)}
+            <Button
+              variant="outlined"
+              startIcon={exportingPdf ? <CircularProgress size={16} color="inherit" /> : <PdfIcon />}
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              size={isMobile ? "small" : "medium"}
+              sx={{ color: 'error.main', borderColor: 'error.main', '&:hover': { borderColor: 'error.dark' } }}
+            >
+              {exportingPdf ? 'Exportando...' : 'Exportar PDF'}
+            </Button>
             {workPermit.status === 'borrador' && (
               <Button
                 variant="contained"
@@ -766,187 +859,361 @@ export const WorkPermitDetail: React.FC = () => {
 
       {/* Tab Content */}
       {activeTab === 0 && (
-        <Grid container spacing={3}>
-          {/* Información Principal */}
-          <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Información General
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Descripción del Trabajo
-                  </Typography>
-                  <Typography variant="body1" sx={{ mb: 2 }}>
-                    {workPermit.workDescription}
-                  </Typography>
-                </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Usuarios Asignados
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={handleOpenUserManagement}
-                        sx={{ ml: 1 }}
-                      >
-                        <GroupAddIcon />
-                      </IconButton>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {/* Mock users - in real implementation, these would come from the permit data */}
-                      <Chip
-                        avatar={<Avatar sx={{ 
-                          bgcolor: getRoleColor('admin'),
-                          width: isXs ? 24 : 32,
-                          height: isXs ? 24 : 32,
-                          fontSize: isXs ? '0.75rem' : '0.875rem'
-                        }}>JP</Avatar>}
-                        label={isXs ? "J. Pérez" : "Juan Pérez"}
-                        color={getRoleColor('admin')}
-                        icon={getRoleIcon('admin')}
-                        size={isXs ? "small" : "medium"}
-                        sx={{ 
-                          '& .MuiChip-icon': { 
-                            ml: 0.5, 
-                            mr: -0.5,
-                            fontSize: isXs ? '1rem' : '1.25rem'
-                          },
-                          fontWeight: 500
-                        }}
-                      />
-                      <Chip
-                        avatar={<Avatar sx={{ 
-                          bgcolor: getRoleColor('approver'),
-                          width: isXs ? 24 : 32,
-                          height: isXs ? 24 : 32,
-                          fontSize: isXs ? '0.75rem' : '0.875rem'
-                        }}>MG</Avatar>}
-                        label={isXs ? "M. González" : "María González"}
-                        color={getRoleColor('approver')}
-                        icon={getRoleIcon('approver')}
-                        size={isXs ? "small" : "medium"}
-                        sx={{ 
-                          '& .MuiChip-icon': { 
-                            ml: 0.5, 
-                            mr: -0.5,
-                            fontSize: isXs ? '1rem' : '1.25rem'
-                          },
-                          fontWeight: 500
-                        }}
-                      />
-                      <Chip
-                        avatar={<Avatar sx={{ 
-                          bgcolor: getRoleColor('reviewer'),
-                          width: isXs ? 24 : 32,
-                          height: isXs ? 24 : 32,
-                          fontSize: isXs ? '0.75rem' : '0.875rem'
-                        }}>CL</Avatar>}
-                        label={isXs ? "C. López" : "Carlos López"}
-                        color={getRoleColor('reviewer')}
-                        icon={getRoleIcon('reviewer')}
-                        size={isXs ? "small" : "medium"}
-                        sx={{ 
-                          '& .MuiChip-icon': { 
-                            ml: 0.5, 
-                            mr: -0.5,
-                            fontSize: isXs ? '1rem' : '1.25rem'
-                          },
-                          fontWeight: 500
-                        }}
-                      />
-                    </Box>
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <AdminIcon fontSize="small" sx={{ color: 'error.main' }} />
-                            Admin
-                          </Box>
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <ApproverIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                            Aprobador
-                          </Box>
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <ReviewerIcon fontSize="small" sx={{ color: 'success.main' }} />
-                            Revisor
-                          </Box>
-                        </Box>
-                      </Typography>
-                    </Box>
+        <Stack spacing={3}>
+          {/* Sección 1: Información Esencial */}
+          <Card elevation={1}>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+              <Grid container spacing={3} alignItems="center">
+                <Grid size={{ xs: 12, md: 10 }}>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      DESCRIPCIÓN DEL TRABAJO
+                    </Typography>
+                    <Typography variant="h6" sx={{ mt: 0.5 }}>
+                      {workPermit.workDescription}
+                    </Typography>
                   </Box>
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <BusinessIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Espacio de trabajo
-                      </Typography>
-                      <Typography variant="body1">
-                        {workPermit.company?.name || 'No especificada'}
-                      </Typography>
+                <Grid size={{ xs: 12, md: 2 }}>
+                  <Box textAlign={{ xs: 'left', md: 'center' }}>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      Categoría
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      {workPermit.category && (
+                        <Chip
+                          icon={<BuildIcon />}
+                          label={workPermit.category.replace(/_/g, ' ').toUpperCase()}
+                          color="primary"
+                          size="medium"
+                          sx={{ fontWeight: 600 }}
+                        />
+                      )}
                     </Box>
                   </Box>
-                </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <LocationIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Ubicación
-                      </Typography>
-                      <Typography variant="body1">
-                        {workPermit.location}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Fecha de Inicio
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatDate(workPermit.startDate)}
-                  </Typography>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Fecha de Fin
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatDate(workPermit.endDate)}
-                  </Typography>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Horario
-                  </Typography>
-                  <Typography variant="body1">
-                    {workPermit.workHours?.start && workPermit.workHours?.end 
-                      ? `${workPermit.workHours.start} - ${workPermit.workHours.end}`
-                      : typeof workPermit.workHours === 'string' ? workPermit.workHours : 'No especificado'
-                    }
-                  </Typography>
                 </Grid>
               </Grid>
             </CardContent>
           </Card>
 
-          {/* Riesgos y Controles */}
-          <Card sx={{ mt: 2 }}>
+          {/* Sección 2: Detalles Operativos */}
+          <Grid container spacing={2}>
+            {/* Tarjeta de Tiempo */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card elevation={1} sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <CalendarIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      Cronograma
+                    </Typography>
+                  </Box>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Inicio
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {formatDate(workPermit.startDate)}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Fin
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {formatDate(workPermit.endDate)}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Horario
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {workPermit.workHours?.start && workPermit.workHours?.end 
+                          ? `${workPermit.workHours.start} - ${workPermit.workHours.end}`
+                          : 'No especificado'
+                        }
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            {/* Tarjeta de Ubicación */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card elevation={1} sx={{ height: '100%' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <LocationIcon sx={{ mr: 1, color: 'secondary.main' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      Ubicación
+                    </Typography>
+                  </Box>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Espacio de trabajo
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {workPermit.company?.name || 'No especificada'}
+                      </Typography>
+                    </Box>
+                    {workPermit.location && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Ubicación específica
+                        </Typography>
+                        <Tooltip
+                          title={
+                            <Box sx={{ whiteSpace: 'pre-line' }}>
+                              {getLocationTooltip(workPermit.location)}
+                            </Box>
+                          }
+                          arrow
+                          placement="top"
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                color: 'primary.main'
+                              }
+                            }}
+                          >
+                            {getLocationDisplay(workPermit.location)}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
+                    )}
+                    {workPermit.createdBy && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Creado por
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {typeof workPermit.createdBy === 'string' 
+                            ? workPermit.createdBy 
+                            : `${workPermit.createdBy.firstName || ''} ${workPermit.createdBy.lastName || ''}`.trim() || workPermit.createdBy.email}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            {/* Tarjeta de Personal */}
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Card elevation={1} sx={{ height: '100%' }}>
+                <CardContent>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <GroupIcon sx={{ mr: 1, color: 'warning.main' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Personal ({workPermit.linkedUsers?.length || 0})
+                      </Typography>
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={handleOpenUserManagement}
+                      sx={{ p: 0.5 }}
+                    >
+                      <PersonAddIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {workPermit.linkedUsers && workPermit.linkedUsers.length > 0 ? (
+                        workPermit.linkedUsers.map((linkedUser, idx) => {
+                          const user = typeof linkedUser.user === 'string' ? null : linkedUser.user;
+                          const addedBy = typeof linkedUser.addedBy === 'string' ? null : linkedUser.addedBy;
+                          
+                          // Map role labels
+                          const roleLabels = {
+                            principal: 'Principal',
+                            support: 'Apoyo',
+                            observer: 'Observador'
+                          };
+                          const roleLabel = roleLabels[linkedUser.role] || 'Usuario';
+                          const roleType = linkedUser.role;
+                          
+                          const initials = user?.firstName && user?.lastName
+                            ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                            : linkedUser.role === 'principal' ? 'P' : 'A';
+                          
+                          const userName = user?.firstName && user?.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : 'Usuario';
+                          
+                          const shortName = user?.firstName && user?.lastName
+                            ? `${user.firstName[0]}. ${user.lastName}`
+                            : roleLabel;
+                          
+                          const tooltipContent = (
+                            <Box sx={{ p: 0.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                {userName}
+                              </Typography>
+                              {user?.email && (
+                                <Typography variant="caption" display="block">
+                                  {user.email}
+                                </Typography>
+                              )}
+                              {user?.cedula && (
+                                <Typography variant="caption" display="block">
+                                  Cédula: {user.cedula}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                Rol: {roleLabel}
+                              </Typography>
+                              {addedBy && (
+                                <Typography variant="caption" display="block">
+                                  Agregado por: {addedBy.firstName} {addedBy.lastName}
+                                </Typography>
+                              )}
+                              {linkedUser.addedAt && (
+                                <Typography variant="caption" display="block">
+                                  Fecha: {new Date(linkedUser.addedAt).toLocaleDateString('es-ES')}
+                                </Typography>
+                              )}
+                            </Box>
+                          );
+                          
+                          return (
+                            <Tooltip 
+                              key={idx}
+                              title={tooltipContent}
+                              arrow
+                              placement="top"
+                            >
+                              <Chip
+                                label={shortName}
+                                variant="outlined"
+                                size="small"
+                                sx={{ 
+                                  borderColor: roleType === 'principal' ? 'primary.main' : roleType === 'support' ? 'warning.main' : 'info.main',
+                                  color: 'text.primary',
+                                  bgcolor: 'white',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    bgcolor: roleType === 'principal' ? 'primary.light' : roleType === 'support' ? 'warning.light' : 'info.light',
+                                    borderColor: roleType === 'principal' ? 'primary.dark' : roleType === 'support' ? 'warning.dark' : 'info.dark',
+                                  }
+                                }}
+                                onClick={() => {}}
+                              />
+                            </Tooltip>
+                          );
+                        })
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No hay usuarios asignados
+                        </Typography>
+                      )}
+                    </Box>
+                  {workPermit.linkedUsers && workPermit.linkedUsers.length > 0 && (
+                    <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {workPermit.linkedUsers.filter(u => u.role === 'principal').length} principal(es), 
+                        {' '}{workPermit.linkedUsers.filter(u => u.role === 'support').length} apoyo, 
+                        {' '}{workPermit.linkedUsers.filter(u => u.role === 'observer').length} observador(es)
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Sección 3: Información de Seguridad (Preview) */}
+          <Card elevation={1}>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <SecurityIcon sx={{ mr: 1.5, color: 'error.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Información de Seguridad
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={3}>
+                {/* Riesgos */}
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                      <WarningIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
+                      Riesgos Identificados
+                    </Typography>
+                    {workPermit.identifiedRisks && workPermit.identifiedRisks.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {workPermit.identifiedRisks.slice(0, 3).map((risk, idx) => (
+                          <Chip key={idx} label={risk} size="small" variant="outlined" color="error" />
+                        ))}
+                        {workPermit.identifiedRisks.length > 3 && (
+                          <Chip label={`+${workPermit.identifiedRisks.length - 3} más`} size="small" variant="filled" />
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">No especificados</Typography>
+                    )}
+                  </Box>
+                </Grid>
+                
+                {/* EPP */}
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                      <SecurityIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
+                      EPP Requerido
+                    </Typography>
+                    {workPermit.requiredPPE && workPermit.requiredPPE.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {workPermit.requiredPPE.slice(0, 3).map((ppe, idx) => (
+                          <Chip key={idx} label={ppe} size="small" variant="outlined" color="primary" />
+                        ))}
+                        {workPermit.requiredPPE.length > 3 && (
+                          <Chip label={`+${workPermit.requiredPPE.length - 3} más`} size="small" variant="filled" />
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">No especificados</Typography>
+                    )}
+                  </Box>
+                </Grid>
+                
+                {/* Controles */}
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                      <CheckCircleIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
+                      Controles Activos
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        {workPermit.safetyControls?.filter(c => c.checked).length || 0}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        de {workPermit.safetyControls?.length || 0} controles
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Stack>
+      )}
+
+      {/* Riesgos y Controles Detallados */}
+      {activeTab === 0 && (
+        <>
+          <Card elevation={2} sx={{ mt: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Riesgos y Controles de Seguridad
@@ -1152,8 +1419,7 @@ export const WorkPermitDetail: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        </Grid>
+        </>
       )}
 
       {activeTab === 1 && (

@@ -327,10 +327,16 @@ export interface LinkedUser {
     firstName?: string;
     lastName?: string;
     email?: string;
+    cedula?: string;
   };
-  role: 'principal' | 'support';
+  role: 'principal' | 'support' | 'observer';
   addedAt: string;
-  addedBy: string;
+  addedBy: string | {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+  };
 }
 
 export interface WorkPermit {
@@ -347,7 +353,12 @@ export interface WorkPermit {
   };
   linkedUsers?: LinkedUser[];
   workDescription: string;
-  location: string;
+  location: string | {
+    type: string;
+    generalArea: string;
+    route: string;
+    notes?: string;
+  };
   startDate: string;
   endDate: string;
   workHours: {

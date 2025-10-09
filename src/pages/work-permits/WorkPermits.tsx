@@ -123,14 +123,14 @@ export const WorkPermits: React.FC = () => {
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [selectedPermitForUsers, setSelectedPermitForUsers] = useState<WorkPermit | null>(null);
   const [userSelectionOpen, setUserSelectionOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'principal' | 'support'>('support');
+  const [selectedRole, setSelectedRole] = useState<'principal' | 'support' | 'observer'>('support');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [permitUsers, setPermitUsers] = useState<Array<{
     _id: string;
     firstName: string;
     lastName: string;
     email: string;
-    role: 'principal' | 'support';
+    role: 'principal' | 'support' | 'observer';
   }>>([]);
   const [availableUsers, setAvailableUsers] = useState<Array<{
     _id: string;
@@ -358,6 +358,30 @@ export const WorkPermits: React.FC = () => {
   const formatDate = (date: string | Date) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     return dateObj.toLocaleDateString('es-CR');
+  };
+
+  const getLocationDisplay = (location: string | { type?: string; generalArea?: string; route?: string; notes?: string }) => {
+    if (typeof location === 'string') {
+      return location;
+    }
+    // If location is an object, format it nicely
+    const parts = [];
+    if (location.generalArea) parts.push(location.generalArea);
+    if (location.route && typeof location.route === 'string') parts.push(location.route);
+    return parts.join(' - ') || 'N/A';
+  };
+
+  const getLocationTooltip = (location: string | { type?: string; generalArea?: string; route?: string; notes?: string }) => {
+    if (typeof location === 'string') {
+      return location;
+    }
+    // Build detailed tooltip
+    const details = [];
+    if (location.type) details.push(`Tipo: ${location.type}`);
+    if (location.generalArea) details.push(`Área: ${location.generalArea}`);
+    if (location.route && typeof location.route === 'string') details.push(`Ruta: ${location.route}`);
+    if (location.notes) details.push(`Notas: ${location.notes}`);
+    return details.join('\n') || 'N/A';
   };
 
   const getStatusChip = (status: string) => {
@@ -930,9 +954,27 @@ export const WorkPermits: React.FC = () => {
                     <Typography variant="caption" color="text.secondary">
                       Ubicación
                     </Typography>
-                    <Typography variant="body2">
-                      {permit.location}
-                    </Typography>
+                    <Tooltip
+                      title={
+                        <Box sx={{ whiteSpace: 'pre-line' }}>
+                          {getLocationTooltip(permit.location)}
+                        </Box>
+                      }
+                      arrow
+                      placement="top"
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            color: 'primary.main'
+                          }
+                        }}
+                      >
+                        {getLocationDisplay(permit.location)}
+                      </Typography>
+                    </Tooltip>
                   </Grid>
                   <Grid size={{ xs: 6 }}>
                     <Typography variant="caption" color="text.secondary">
@@ -1095,7 +1137,31 @@ export const WorkPermits: React.FC = () => {
                       </Typography>
                     </TableCell>
                   )}
-                  {!isMd && <TableCell>{permit.location}</TableCell>}
+                  {!isMd && (
+                    <TableCell>
+                      <Tooltip
+                        title={
+                          <Box sx={{ whiteSpace: 'pre-line' }}>
+                            {getLocationTooltip(permit.location)}
+                          </Box>
+                        }
+                        arrow
+                        placement="top"
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            cursor: 'pointer',
+                            '&:hover': {
+                              color: 'primary.main'
+                            }
+                          }}
+                        >
+                          {getLocationDisplay(permit.location)}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                   {!isSm && <TableCell>{formatDate(permit.startDate)}</TableCell>}
                   {!isMd && <TableCell>{formatDate(permit.endDate)}</TableCell>}
                   <TableCell>{getStatusChip(permit.status)}</TableCell>
