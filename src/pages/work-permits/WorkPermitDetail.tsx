@@ -864,7 +864,7 @@ export const WorkPermitDetail: React.FC = () => {
           <Card elevation={1}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
               <Grid container spacing={3} alignItems="center">
-                <Grid size={{ xs: 12, md: 10 }}>
+                <Grid size={{ xs: 12, md: 9 }}>
                   <Box>
                     <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
                       DESCRIPCIÓN DEL TRABAJO
@@ -875,19 +875,19 @@ export const WorkPermitDetail: React.FC = () => {
                   </Box>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 2 }}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Box textAlign={{ xs: 'left', md: 'center' }}>
                     <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
                       Categoría
                     </Typography>
-                    <Box sx={{ mt: 0.5 }}>
+                    <Box sx={{ mt: 0.5, display: 'flex', justifyContent: { xs: 'flex-start', md: 'center' } }}>
                       {workPermit.category && (
                         <Chip
                           icon={<BuildIcon />}
                           label={workPermit.category.replace(/_/g, ' ').toUpperCase()}
                           color="primary"
                           size="medium"
-                          sx={{ fontWeight: 600 }}
+                          sx={{ fontWeight: 600, maxWidth: '100%' }}
                         />
                       )}
                     </Box>
@@ -1012,20 +1012,11 @@ export const WorkPermitDetail: React.FC = () => {
               <Card elevation={1} sx={{ height: '100%' }}>
                 <CardContent>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <GroupIcon sx={{ mr: 1, color: 'warning.main' }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        Personal ({workPermit.linkedUsers?.length || 0})
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={handleOpenUserManagement}
-                      sx={{ p: 0.5 }}
-                    >
-                      <PersonAddIcon fontSize="small" />
-                    </IconButton>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <GroupIcon sx={{ mr: 1, color: 'warning.main' }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      Personal ({workPermit.linkedUsers?.length || 0})
+                    </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {workPermit.linkedUsers && workPermit.linkedUsers.length > 0 ? (
@@ -1051,7 +1042,7 @@ export const WorkPermitDetail: React.FC = () => {
                             : 'Usuario';
                           
                           const shortName = user?.firstName && user?.lastName
-                            ? `${user.firstName[0]}. ${user.lastName}`
+                            ? `${user.firstName} ${user.lastName}`
                             : roleLabel;
                           
                           const tooltipContent = (

@@ -741,10 +741,30 @@ export const WorkPermits: React.FC = () => {
           )}
         </Box>
 
+        {/* Search Bar */}
+        <Box sx={{ mb: 2, maxWidth: 400 }}>
+          <TextField
+            fullWidth
+            placeholder="Buscar por descripción, número de permiso..."
+            value={searchTerm}
+            onChange={handleSearch}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
+              }
+            }}
+            size="medium"
+          />
+        </Box>
+
         {/* Action Buttons Grid */}
-        <Box sx={{ 
+        <Box sx={{
           display: 'grid',
-          gridTemplateColumns: { 
+          gridTemplateColumns: {
             xs: canCreatePermit() ? '1fr' : '1fr 1fr',
             sm: canViewStats() && canCreatePermit() ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)',
             md: !isMobile ? 'repeat(3, minmax(150px, 200px))' : 'repeat(4, 1fr)'
@@ -757,7 +777,7 @@ export const WorkPermits: React.FC = () => {
             <Button
               variant="contained"
               onClick={handleAddNew}
-              sx={{ 
+              sx={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1004,21 +1024,66 @@ export const WorkPermits: React.FC = () => {
                     <Typography variant="caption" color="text.secondary">
                       Usuarios Asignados
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                      <AvatarGroup max={4} sx={{ mr: 1 }}>
-                        <Tooltip title="Juan Pérez - Aprobador">
-                          <Avatar sx={{ width: 24, height: 24 }}>JP</Avatar>
-                        </Tooltip>
-                        <Tooltip title="María González - Revisor">
-                          <Avatar sx={{ width: 24, height: 24 }}>MG</Avatar>
-                        </Tooltip>
-                      </AvatarGroup>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenUserManagement(permit)}
-                      >
-                        <GroupAddIcon fontSize="small" />
-                      </IconButton>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      {permit.linkedUsers && permit.linkedUsers.length > 0 ? (
+                        permit.linkedUsers.slice(0, 3).map((linkedUser, idx) => {
+                          const user = typeof linkedUser.user === 'string' ? null : linkedUser.user;
+
+                          const roleLabels = {
+                            principal: 'Principal',
+                            support: 'Apoyo',
+                            observer: 'Observador'
+                          };
+                          const roleLabel = roleLabels[linkedUser.role] || 'Usuario';
+                          const roleType = linkedUser.role;
+
+                          const userName = user?.firstName && user?.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : 'Usuario';
+
+                          const shortName = user?.firstName && user?.lastName
+                            ? `${user.firstName[0]}${user.lastName[0]}`
+                            : roleLabel;
+
+                          return (
+                            <Tooltip
+                              key={idx}
+                              title={`${userName} - ${roleLabel}`}
+                              arrow
+                              placement="top"
+                            >
+                              <Chip
+                                label={shortName}
+                                variant="outlined"
+                                size="small"
+                                sx={{
+                                  borderColor: roleType === 'principal' ? 'primary.main' : roleType === 'support' ? 'warning.main' : 'info.main',
+                                  color: 'text.primary',
+                                  bgcolor: 'white',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    bgcolor: roleType === 'principal' ? 'primary.light' : roleType === 'support' ? 'warning.light' : 'info.light',
+                                    borderColor: roleType === 'principal' ? 'primary.dark' : roleType === 'support' ? 'warning.dark' : 'info.dark',
+                                  }
+                                }}
+                              />
+                            </Tooltip>
+                          );
+                        })
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Sin usuarios
+                        </Typography>
+                      )}
+                      {permit.linkedUsers && permit.linkedUsers.length > 3 && (
+                        <Chip
+                          label={`+${permit.linkedUsers.length - 3}`}
+                          size="small"
+                          variant="filled"
+                          sx={{ bgcolor: 'grey.300', color: 'text.primary' }}
+                        />
+                      )}
                     </Box>
                   </Grid>
                   </Grid>
@@ -1037,8 +1102,6 @@ export const WorkPermits: React.FC = () => {
                 <TableCell>Descripción</TableCell>
                 {!isMd && <TableCell>Espacio de trabajo</TableCell>}
                 {!isMd && <TableCell>Ubicación</TableCell>}
-                {!isSm && <TableCell>Fecha Inicio</TableCell>}
-                {!isMd && <TableCell>Fecha Fin</TableCell>}
                 <TableCell>Estado</TableCell>
                 {canApprove() && !isSm && <TableCell>Aprobaciones</TableCell>}
                 <TableCell align="center">Acciones</TableCell>
@@ -1049,64 +1112,57 @@ export const WorkPermits: React.FC = () => {
                 <TableRow key={permit._id} hover>
                   {!isSm && (
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {permit.linkedUsers && permit.linkedUsers.length > 0 ? (
-                          <>
-                            <AvatarGroup
-                              max={isXs ? 2 : 3}
-                              sx={{
-                                mr: 1,
-                                '& .MuiAvatar-root': {
-                                  width: isXs ? 24 : 32,
-                                  height: isXs ? 24 : 32,
-                                  fontSize: isXs ? '0.75rem' : '1rem'
-                                }
-                              }}
-                            >
+                      {permit.linkedUsers && permit.linkedUsers.length > 0 ? (
+                        <Tooltip
+                          title={
+                            <Box sx={{ p: 0.5 }}>
                               {permit.linkedUsers.map((linkedUser, idx) => {
                                 const user = typeof linkedUser.user === 'string' ? null : linkedUser.user;
-                                const roleLabel = linkedUser.role === 'principal' ? 'Principal' : 'Apoyo';
-
-                                const initials = user?.firstName && user?.lastName
-                                  ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-                                  : linkedUser.role === 'principal' ? 'P' : 'A';
-
+                                const roleLabels = {
+                                  principal: 'Principal',
+                                  support: 'Apoyo',
+                                  observer: 'Observador'
+                                };
+                                const roleLabel = roleLabels[linkedUser.role] || 'Usuario';
                                 const userName = user?.firstName && user?.lastName
                                   ? `${user.firstName} ${user.lastName}`
                                   : 'Usuario';
 
                                 return (
-                                  <Tooltip key={idx} title={`${userName} - ${roleLabel}`}>
-                                    <Avatar>
-                                      {initials}
-                                    </Avatar>
-                                  </Tooltip>
+                                  <Box key={idx} sx={{ mb: idx < (permit.linkedUsers?.length || 0) - 1 ? 1 : 0 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                      {userName}
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      {roleLabel}
+                                    </Typography>
+                                    {user?.email && (
+                                      <Typography variant="caption" display="block" color="text.secondary">
+                                        {user.email}
+                                      </Typography>
+                                    )}
+                                  </Box>
                                 );
                               })}
-                            </AvatarGroup>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenUserManagement(permit)}
-                              sx={{ ml: 0.5, padding: isXs ? 0.5 : 1 }}
-                            >
-                              <GroupAddIcon fontSize={isXs ? "small" : "medium"} />
-                            </IconButton>
-                          </>
-                        ) : (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              Sin usuarios
-                            </Typography>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenUserManagement(permit)}
-                              sx={{ padding: isXs ? 0.5 : 1 }}
-                            >
-                              <GroupAddIcon fontSize={isXs ? "small" : "medium"} />
-                            </IconButton>
-                          </Box>
-                        )}
-                      </Box>
+                            </Box>
+                          }
+                          arrow
+                          placement="top"
+                        >
+                          <Chip
+                            icon={<GroupIcon />}
+                            label={`${permit.linkedUsers.length} participante${permit.linkedUsers.length !== 1 ? 's' : ''}`}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            sx={{ cursor: 'pointer' }}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Sin usuarios
+                        </Typography>
+                      )}
                     </TableCell>
                   )}
                   <TableCell>
@@ -1162,8 +1218,6 @@ export const WorkPermits: React.FC = () => {
                       </Tooltip>
                     </TableCell>
                   )}
-                  {!isSm && <TableCell>{formatDate(permit.startDate)}</TableCell>}
-                  {!isMd && <TableCell>{formatDate(permit.endDate)}</TableCell>}
                   <TableCell>{getStatusChip(permit.status)}</TableCell>
                   {canApprove() && !isSm && (
                     <TableCell>
@@ -1322,24 +1376,6 @@ export const WorkPermits: React.FC = () => {
               </Box>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Search Filter */}
-                <TextField
-                  fullWidth
-                  label="Búsqueda"
-                  placeholder="Buscar por descripción o contratista..."
-                  value={searchTerm}
-                  onChange={handleSearch}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      )
-                    }
-                  }}
-                />
-
                 {/* Status Filter */}
                 <FormControl fullWidth>
                   <InputLabel>Estado</InputLabel>
